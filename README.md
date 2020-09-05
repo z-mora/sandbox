@@ -1,2 +1,2 @@
 # sandbox
-My sandbox for testing code
+I use this sandbox for testing Docker images and AWS deployments
