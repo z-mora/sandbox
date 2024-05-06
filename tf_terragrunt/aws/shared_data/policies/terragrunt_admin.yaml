@@ -1,0 +1,18 @@
+Version: 2012-10-17
+Statement:
+  - Sid: "AllowAssumeOfTerragruntRole"
+    Effect: Allow
+    Action:
+      - "sts:AssumeRole"
+    Resource: !Sub "arn:$${AWS::Partition}:iam::*:role/service-role/_sys_terragrunt_admin_role"
+  - Sid: "AllowGeneralActions"
+    Effect: Allow
+    Action:
+      - "ec2:DescribeAvailabilityZones"
+      - "sts:GetCallerIdentity"
+    Resource: "*"
+  - Sid: "AllowDynamoDBStateLocking"
+    Effect: Allow
+    Action:
+      - "dynamodb:*"
+    Resource: !Sub "arn:$${AWS::Partition}:dynamodb:$${AWS::Region}:$${AWS::AccountId}:table/terraform-state-lock"

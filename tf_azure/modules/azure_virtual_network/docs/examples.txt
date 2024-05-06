@@ -1,0 +1,128 @@
+# Example 1 - Corp VNet with 2 subnets, connected to virtual WAN hub, default service endpoints
+virtual_networks = {
+  "vnet-sandbox-test-01" = {
+    cidr                   = ["10.208.68.0/22"]
+    is_dmz                 = false
+    location               = "eastus2"
+    private_subnets = {
+      "subnet-sandbox-test-01" = {
+        address_prefixes       = ["10.208.68.0/25"]
+        network_security_group_key = "nsg-sandbox-test-01"
+      }
+      "subnet-sandbox-test-02" = {
+        address_prefixes       = ["10.208.68.128/25"]
+        network_security_group_key = "nsg-sandbox-test-01"
+      }
+    }
+    resource_group_name    = "rg-network-test-01"
+  }
+}
+
+# Example 2 - DMZ VNet for a BU, using a user defined route table
+virtual_networks = {
+  "vnet-conedison-ai-dev-01" = {
+    auto_create_dmz_route_table = false
+    cidr                        = ["10.212.36.0/24"]
+    is_dmz                      = true
+    location                    = "eastus2"
+    private_subnets = {
+      "subnet-conedison-ai-dev-01" = {
+        address_prefixes           = ["10.212.36.0/26"]
+        network_security_group_key = "nsg-conedison-ai-dev-01"
+        route_table_key            = "rt-conedison-ai-dev-01"
+      }
+      "subnet-conedison-ai-dev-02" = {
+        address_prefixes           = ["10.212.36.64/26"]
+        network_security_group_key = "nsg-conedison-ai-dev-01"
+        route_table_key            = "rt-conedison-ai-dev-01"
+      }
+      "subnet-conedison-ai-dev-03" = {
+        address_prefixes           = ["10.212.36.128/26"]
+        network_security_group_key = "nsg-conedison-ai-dev-01"
+        route_table_key            = "rt-conedison-ai-dev-01"
+      }
+      "subnet-conedison-ai-dev-appgw-01" = {
+        address_prefixes           = ["10.212.36.192/26"]
+        network_security_group_key = "nsg-conedison-ai-dev-appgw-01"
+        route_table_key            = "rt-conedison-ai-dev-appgw-01"
+      }
+    }
+    resource_group_name = "rg-conedison-ai-dev-01"
+  }
+}
+
+# Example 3 - DMZ VNet for a BU, using the auto generated route table
+virtual_networks = {
+  "vnet-conedison-ai-dev-01" = {
+    cidr                   = ["10.212.36.0/24"]
+    is_dmz                 = true
+    location               = "eastus2"
+    private_subnets = {
+      "subnet-conedison-ai-dev-01" = {
+        address_prefixes           = ["10.212.36.0/26"]
+        network_security_group_key = "nsg-conedison-ai-dev-01"
+      }
+      "subnet-conedison-ai-dev-02" = {
+        address_prefixes           = ["10.212.36.64/26"]
+        network_security_group_key = "nsg-conedison-ai-dev-01"
+      }
+      "subnet-conedison-ai-dev-03" = {
+        address_prefixes           = ["10.212.36.128/26"]
+        network_security_group_key = "nsg-conedison-ai-dev-01"
+      }
+      "subnet-conedison-ai-dev-appgw-01" = {
+        address_prefixes           = ["10.212.36.192/26"]
+        network_security_group_key = "nsg-conedison-ai-dev-appgw-01"
+      }
+    }
+    resource_group_name = "rg-conedison-ai-dev-01"
+  }
+}
+
+
+# Example 4 - A DMZ VNet with some delegated subnets, using the auto generated route table
+virtual_networks = {
+  "vnet-itd-its-dev-01" = {
+    cidr                   = ["10.212.0.0/23"]
+    is_dmz                 = true
+    location               = "eastus2"
+    private_subnets = {
+      "subnet-itd-its-dev-01" = {
+        address_prefixes           = ["10.212.0.0/26"]
+        network_security_group_key = "nsg-itd-its-dev-01"
+      }
+      "subnet-itd-its-dev-02" = {
+        address_prefixes           = ["10.212.0.64/26"]
+        network_security_group_key = "nsg-itd-its-dev-01"
+      }
+      "subnet-itd-its-dev-03" = {
+        address_prefixes           = ["10.212.0.128/26"]
+        network_security_group_key = "nsg-itd-its-dev-01"
+      }
+      "subnet-itd-its-dev-04" = {
+        address_prefixes           = ["10.212.0.192/26"]
+        network_security_group_key = "nsg-itd-its-dev-01"
+        delegation_name    = "Microsoft.DBforMySQL.flexibleServers"
+        delegation_service = "Microsoft.DBforMySQL/flexibleServers"
+        delegation_actions = ["Microsoft.Network/virtualNetworks/subnets/join/action"]
+      }
+      "subnet-itd-its-dev-05" = {
+        address_prefixes           = ["10.212.1.0/26"]
+        network_security_group_key = "nsg-itd-its-dev-01"
+      }
+      "subnet-itd-its-dev-06" = {
+        address_prefixes           = ["10.212.1.64/26"]
+        network_security_group_key = "nsg-itd-its-dev-01"
+      }
+      "subnet-itd-its-dev-07" = {
+        address_prefixes           = ["10.212.1.128/26"]
+        network_security_group_key = "nsg-itd-its-dev-01"
+      }
+      "subnet-itd-its-dev-08" = {
+        address_prefixes           = ["10.212.1.192/26"]
+        network_security_group_key = "nsg-itd-its-dev-01"
+      }
+    }
+    resource_group_name = "rg-itd-its-dev-01"
+  }
+}

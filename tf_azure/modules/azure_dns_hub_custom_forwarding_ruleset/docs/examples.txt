@@ -1,0 +1,12 @@
+# Example
+dns_hub_custom_forwarding_rulesets = {
+  dnsfrs-test = {
+    location = "eastus2"
+    rules = {
+      "test.com" = {
+        target_dns_servers = ["8.8.8.8:53", "8.8.4.4:53"]
+      }
+    }
+    vnet_keys = ["vnet-dmz-alz-dev-01"]
+  }
+}

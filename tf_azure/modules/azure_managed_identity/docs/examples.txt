@@ -1,0 +1,7 @@
+# Example 1
+managed_identities = {
+  mike-test = {
+    location = "eastus2"
+    resource_group_name = "rg-infraops-dev-01"
+  }
+}

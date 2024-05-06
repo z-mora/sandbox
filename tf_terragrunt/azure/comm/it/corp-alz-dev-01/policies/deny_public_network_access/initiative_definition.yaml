@@ -1,0 +1,12 @@
+name: 'deny_public_network_access'
+display_name: Deny Public Network Access
+description: Deny Public Network Access
+policies:
+  Configure storage accounts to disable public network access:
+    type: 'BuiltIn'
+    id: a06d0189-92e8-4dba-b0c4-08d7669fce7d
+    parameters:
+  Event Hub Namespaces should disable public network access:
+    type: 'BuiltIn'
+    id: 0602787f-9896-402a-a6e1-39ee63ee435e
+    parameters:

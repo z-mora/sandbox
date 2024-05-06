@@ -1,0 +1,90 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Action": [
+        "cloudtrail:StopLogging",
+        "cloudtrail:AddTags",
+        "cloudtrail:DeleteTrail",
+        "cloudtrail:PutEventSelectors",
+        "cloudtrail:RemoveTags",
+        "cloudtrail:UpdateTrail"
+      ],
+      "Resource": "*",
+      "Effect": "Deny",
+      "Condition": {
+        "StringNotLike": {
+          "aws:PrincipalARN": [
+            "arn:aws-us-gov:iam::*:role/aws-reserved/sso.amazonaws.com/us-gov-west-1/AWSReservedSSO_ADMIN-Role*",
+            "arn:aws-us-gov:iam::*:role/OrganizationAccountAccessRole",
+            "arn:aws-us-gov:iam::*:role/service-role/StackSet-base*",
+            "arn:aws-us-gov:iam::*:role/stacksets-exec*",
+            "arn:aws-us-gov:iam::*:user/_sys_jenkins_pipeline"
+          ]
+        }
+      }
+    },
+    {
+      "Action": [
+        "guardduty:CreatePublishingDestination",
+        "guardduty:DeletePublishingDestination",
+        "guardduty:StopMonitoringMembers",
+        "guardduty:TagResource",
+        "guardduty:UntagResource",
+        "guardduty:UpdateDetector",
+        "guardduty:UpdatePublishingDestination",
+        "guardduty:DeleteDetector",
+        "guardduty:DeleteInvitations",
+        "guardduty:DeleteIPSet",
+        "guardduty:DeleteMembers",
+        "guardduty:DeleteThreatIntelSet",
+        "guardduty:DisassociateFromMasterAccount",
+        "guardduty:DisassociateMembers",
+        "guardduty:StopMonitoringMembers"
+      ],
+      "Resource": "*",
+      "Effect": "Deny",
+      "Condition": {
+        "StringNotLike": {
+          "aws:PrincipalARN": [
+            "arn:aws-us-gov:iam::*:role/aws-reserved/sso.amazonaws.com/us-gov-west-1/AWSReservedSSO_ADMIN-Role*",
+            "arn:aws-us-gov:iam::*:role/OrganizationAccountAccessRole",
+            "arn:aws-us-gov:iam::*:role/service-role/StackSet-base*",
+            "arn:aws-us-gov:iam::*:role/stacksets-exec*",
+            "arn:aws-us-gov:iam::*:user/_sys_jenkins_pipeline"
+          ]
+        }
+      }
+    },
+    {
+      "Action": [
+        "securityhub:DeleteInvitations",
+        "securityhub:BatchDisableStandards",
+        "securityhub:DeleteInvitations",
+        "securityhub:DeleteActionTarget",
+        "securityhub:DeleteInsight",
+        "securityhub:DeleteInvitations",
+        "securityhub:TagResource",
+        "securityhub:UntagResource",
+        "securityhub:UpdateStandardsControl",
+        "securityhub:DisableSecurityHub",
+        "securityhub:DisassociateFromMasterAccount",
+        "securityhub:DeleteMembers",
+        "securityhub:DisassociateMembers"
+      ],
+      "Resource": "*",
+      "Effect": "Deny",
+      "Condition": {
+        "StringNotLike": {
+          "aws:PrincipalARN": [
+            "arn:aws-us-gov:iam::*:role/aws-reserved/sso.amazonaws.com/us-gov-west-1/AWSReservedSSO_ADMIN-Role*",
+            "arn:aws-us-gov:iam::*:role/OrganizationAccountAccessRole",
+            "arn:aws-us-gov:iam::*:role/service-role/StackSet-base*",
+            "arn:aws-us-gov:iam::*:role/stacksets-exec*",
+            "arn:aws-us-gov:iam::*:user/_sys_jenkins_pipeline"
+          ]
+        }
+      }
+    }
+  ]
+}

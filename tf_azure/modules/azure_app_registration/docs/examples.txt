@@ -1,0 +1,121 @@
+# Example 1 - app registration with the default User.Read api permissions
+app_registrations = {
+  _sys_terragrunt_admin = {
+    api_permissions = {
+      "Microsoft Graph" = ["User.Read"]
+    }
+  }
+}
+
+# Example 2 - With a secret that has a relative end date
+app_registrations = {
+  _sys_terragrunt_admin = {
+    api_permissions = {
+      "Microsoft Graph" = ["User.Read"]
+    }
+    secrets = {
+      test = {
+        end_date_relative = "24h"
+      }
+    }
+  }
+}
+
+
+# Example 3 - With additional API permissions & a secret with a relative end date
+app_registrations = {
+  _sys_test_user = {
+    api_permissions = {
+      "Log Analytics API" = ["Data.Read"]
+      "Microsoft Graph" = ["User.Read", "SecurityEvents.Read.All"]
+    }
+    secrets = {
+      test = {
+        end_date_relative = "2160h" # 90 days
+      }
+    }
+  }
+}
+
+# Example 3 - With additional API permissions & a secret stored in vault
+app_registrations = {
+  _sys_test_user = {
+    api_permissions = {
+      "Log Analytics API" = ["Data.Read"]
+      "Microsoft Graph" = ["User.Read", "SecurityEvents.Read.All"]
+    }
+    secrets = {
+      test = {
+        end_date_relative = "2160h" # 90 days
+        vault = {
+          mount = "kv2_opde_it_devs"
+          path = "team_cloud/azure/comm/_sys_test_user"
+        }
+      }
+    }
+  }
+}
+
+# Example 4 - With an auto rotating secret that gets stored in vault
+app_registrations = {
+  _sys_test_user = {
+    api_permissions = {
+      "Microsoft Graph" = ["User.Read"]
+    }
+    secrets = {
+      test = {
+        auto_rotate_days = 1
+        vault = {
+          mount = "kv2_opde_it_devs"
+          path = "team_cloud/azure/comm/_sys_test_user"
+        }
+      }
+    }
+  }
+}
+
+# Example 5 - With a staggered rotation secret that gets stored in vault
+app_registrations = {
+  _sys_test_user = {
+    api_permissions = {
+      "Microsoft Graph" = ["User.Read"]
+    }
+    secrets = {
+      test = {
+        staggered_rotation = {
+          overlap_days = 5
+          rotate_days  = 90
+        }
+        vault = {
+          mount = "kv2_opde_it_devs"
+          path = "team_cloud/azure/comm/_sys_test_user"
+        }
+      }
+    }
+  }
+}
+
+# Example 6 - With a client certificate
+# Key located in a file called "miketest.pem" in the same directory
+# Terragrunt.hcl is used instead of tfvars so the file() function can be used
+
+# Contents of terragrunt.hcl
+include "root" {
+  path = find_in_parent_folders("azure.hcl")
+}
+
+inputs = {
+  app_registrations = {
+    _sys_mike_test = {
+      api_permissions = {
+        "Microsoft Graph" = ["User.Read"]
+      }
+      certificates = {
+        test-cert = {
+          type = "AsymmetricX509Cert"
+          value = file("miketest.pem")
+        }
+      }
+    }
+  }
+}

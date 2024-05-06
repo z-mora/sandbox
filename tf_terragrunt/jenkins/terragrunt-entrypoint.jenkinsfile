@@ -1,0 +1,155 @@
+/*
+Jenkinsfile for the Multibranch Pipeline terraform/terragrunt-entrypoint-prod
+This is the entry point for all automated Terraform/Terragrunt jobs.
+When triggered, it uses git diff to find the Terragrunt modules that were modified and
+need to be processed.
+
+For more documentation see:
+https://confluence.parsons.com/display/IT/Terraform+-+Jenkins+Workflows
+*/
+
+def terragruntModuleGroups
+def isPR = env.CHANGE_ID != null
+env.REPO = 'tf_terragrunt' // Outside of pipeline because it's used by an option
+
+pipeline {
+  agent { label 'ecs-rockylinux8_openjdk17_jenkins_agent_all' }
+  options {
+    ansiColor('xterm')
+    checkoutToSubdirectory(REPO)
+    disableConcurrentBuilds(abortPrevious: isPR)
+  }
+  stages {
+    stage('Setup') {
+      steps {
+        sh '''
+          terraform -version
+          terragrunt -version
+        '''
+      }
+    }
+    stage('Format') {
+      when { expression { isPR } }
+      steps {
+        dir(REPO) {
+          sh '''
+            python3 -m black .
+            terraform fmt -recursive
+            terragrunt hclfmt
+          '''
+        }
+      }
+    }
+    stage('Commit') {
+      when { expression { isPR } }
+      steps {
+        dir(REPO) {
+          withCredentials([gitUsernamePassword(credentialsId: 'opde_jenkins_sys_account')]) {
+            sh '''
+              if [[ -z $(git status --porcelain) ]]; then
+                echo 'No changes to commit'
+              else
+                # If the change branch is behind main a merge commit will also be
+                # pushed (the merge commit that's being tested) so it's up to date
+                git checkout -b jenkins-temp-${CHANGE_BRANCH}
+                git add .
+                git commit -m 'terraform-standards-check'
+                git checkout $CHANGE_BRANCH
+                git merge jenkins-temp-${CHANGE_BRANCH}
+                git pull && git push
+              fi
+            '''
+          }
+        }
+      }
+    }
+    stage('Get Terragrunt modules') {
+      // Get list of Terragrunt modules that changed & need to be planned/applied
+      steps {
+        script {
+          dir(REPO) {
+            // Use evaluate() to convert a string representation of a Groovy map to an
+            // actual object
+            terragruntModuleGroups = evaluate(sh(
+              returnStdout: true,
+              script: """
+                python3 jenkins/get_terragrunt_modules_from_diff.py \
+                  ${isPR} \
+                  "\$(terragrunt output-module-groups --terragrunt-config ignore_me.hcl)"
+              """
+              ).trim())
+            echo "Found ${terragruntModuleGroups.size()} module groups: ${terragruntModuleGroups}"
+          }
+        }
+      }
+    }
+    stage('Plan/Build Terragrunt modules') {
+      when { expression { terragruntModuleGroups.size() > 0 } }
+      steps {
+        script {
+          if (isPR) {
+            echo 'Planning Terragrunt modules in PR...'
+          } else {
+            echo 'Applying Terragrunt modules...'
+          }
+
+          terragruntModuleGroups.each { group ->
+            echo "Processing ${group.value.size()} modules in ${group.key}..."
+            def tasks = [:] // Empty map to place the jobs to run in parallel
+            for (modulePath in group.value) {
+              def jobName = (
+                isPR ? '/terraform/terragrunt-plan-pr-prod' :
+                  '/terraform/terragrunt-apply-prod'
+              )
+              echo "Adding Terragrunt module to job list: ${modulePath}"
+              // Save modulePath again before using it, otherwise it only builds 1 job
+              // See: https://issues.jenkins.io/browse/JENKINS-55426
+              def workingDir = modulePath
+              def parameters = [string(name: 'WORKING_DIR', value: workingDir)]
+              if (isPR) {
+                // If not a PR, let it use default values for these params
+                parameters.add(string(name: 'PR_ID', value: CHANGE_ID))
+                parameters.add(string(name: 'TERRAGRUNT_BRANCH', value: CHANGE_BRANCH))
+              }
+              tasks[modulePath] = { build job: jobName, parameters: parameters }
+            }
+            echo "Starting parallel builds for ${group.key} Terragrunt modules..."
+            parallel tasks
+            echo "${group.key} module builds have all completed"
+          }
+        }
+      }
+    }
+  }
+  post {
+    always {
+      script {
+        // The build status will get automatically set for the commit that triggered the
+        // build. Manually add the build status for the latest commit, if there is one
+        if (currentBuild.currentResult != 'ABORTED') {
+          dir(REPO) {
+            echo 'Getting latest commit...'
+            withCredentials([gitUsernamePassword(credentialsId: 'opde_jenkins_sys_account')]) {
+              sh 'git checkout $CHANGE_BRANCH && git pull'
+              def latestCommit = sh(returnStdout: true, script: 'git rev-parse HEAD').trim()
+              if (latestCommit != GIT_COMMIT) {
+                notifyBitbucket(
+                  commitSha1: latestCommit,
+                  credentialsId: 'opde_jenkins_sys_account',
+                  stashServerBaseUrl: 'https://bitbucket.parsons.com'
+                )
+              }
+            }
+          }
+        }
+      }
+    }
+    failure {
+      slackSend(
+        channel: '#alerts-infrastructure-cloud',
+        color: 'danger',
+        message: "${currentBuild.currentResult}: <${RUN_DISPLAY_URL}|${JOB_NAME} #${BUILD_NUMBER}>",
+      )
+    }
+  }
+}

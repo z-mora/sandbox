@@ -1,0 +1,23 @@
+# Example 1 - Creating a private endpoint using the storage account ID output from another
+# deployment
+# In this example the parent folder will deploy a storage account with the key
+# "stparsonstfstatecomm"
+
+# terragrunt.hcl:
+include "root" {
+  path = find_in_parent_folders("azure.hcl")
+}
+
+dependency "storage" {
+  config_path = "../"
+}
+
+inputs = {
+  centralized_private_endpoints = {
+    "pep-stparsonstfstatecomm" = {
+      location = "eastus2"
+      resource_id = dependency.storage.outputs.storage_accounts["stparsonstfstatecomm"].id
+      subresource_names = ["blob"]
+    }
+  }
+}

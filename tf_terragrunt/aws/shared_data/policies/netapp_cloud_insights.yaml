@@ -1,0 +1,22 @@
+Version: 2012-10-17
+Statement:
+  - Effect: Allow
+    Sid: "NetAppCIUserAssumeSTS"
+    Action:
+      - "sts:AssumeRole"
+    Resource: !Sub "arn:$${AWS::Partition}:iam::*:role/service-role/_sys_netapp_cloud_insights_role"
+  - Effect: Allow
+    Sid: "NetAppCIDiscoveryActions"
+    Action:
+      - "ec2:Describe*"
+      - "elasticloadbalancing:Describe*"
+      - "cloudwatch:ListMetrics"
+      - "cloudwatch:GetMetricStatistics"
+      - "cloudwatch:Describe*"
+      - "autoscaling:Describe*"
+      - "organizations:Describe*"
+      - "organizations:List*"
+      - "account:GetAlternateContact"
+      - "account:GetContactInformation"
+      - "account:ListRegions"
+    Resource: "*"

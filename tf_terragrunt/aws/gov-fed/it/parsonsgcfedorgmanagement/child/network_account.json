@@ -1,0 +1,50 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "NotAction": [
+        "ec2:*",
+        "ram:*",
+        "iam:*",
+        "support:*",
+        "ssm:*",
+        "tag:*",
+        "sts:*",
+        "s3:*",
+        "kms:*",
+        "cloudtrail:*",
+        "config:*",
+        "codebuild:*",
+        "cloudwatch:*",
+        "events:*",
+        "dlm:*",
+        "cloudformation:*",
+        "codebuild:*",
+        "cloudfront:*",
+        "logs:*",
+        "guardduty:*",
+        "sns:*",
+        "sqs:*",
+        "elasticloadbalancing:*",
+        "globalaccelerator:*",
+        "acm:*",
+        "waf:*",
+        "wafv2:*",
+        "waf-regional:*",
+        "apigateway:*",
+        "appsync:*",
+        "health:*",
+        "compute-optimizer:*",
+        "servicecatalog:*",
+        "states:*",
+        "xray:*",
+        "lambda:*",
+        "aws-portal:*",
+        "ce:*",
+        "trustedadvisor:*"
+      ],
+      "Resource": "*",
+      "Effect": "Deny"
+    }
+  ]
+}

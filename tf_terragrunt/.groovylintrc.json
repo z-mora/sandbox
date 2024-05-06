@@ -1,0 +1,12 @@
+{
+  "extends": "recommended-jenkinsfile",
+  "rules": {
+    "DuplicateMapLiteral": "off",
+    "DuplicateNumberLiteral": "off",
+    "DuplicateStringLiteral": "off",
+    "formatting.Indentation": {
+      "spacesPerIndentLevel": 2,
+      "severity": "info"
+    }
+  }
+}

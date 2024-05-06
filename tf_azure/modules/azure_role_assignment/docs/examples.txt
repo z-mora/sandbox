@@ -1,0 +1,78 @@
+# Example 1 - Assigning a group to a custom role at a subscription
+role_assignments = {
+  "Grant group access to sub" = {
+    group_display_names = ["AZ_COMM_CORP_ADMIN"]
+    role_name = "role-parsons-alz-admin"
+    scope = {
+      display_name = "sub-comm-corp-infraops-dev-01"
+      type = "subscription"
+    }
+  }
+}
+
+# Example 2 - Assigning a managed identity to a custom role at a subscription
+role_assignments = {
+  "Grant managed identity access to sub" = {
+    managed_identity_keys = ["id-private-endpoint-dns-configuration"]
+    role_name = "role-parsons-alz-admin"
+    scope = {
+      display_name = "sub-comm-corp-infraops-dev-01"
+      type = "subscription"
+    }
+  }
+}
+
+
+# Example 3 - Assigning a user to a custom role at a management group
+role_assignments = {
+  "Grant user access to sub" = {
+    group_display_names = ["AZ_COMM_CORP_ADMIN"]
+    managed_identity_keys = ["id-private-endpoint-dns-configuration"]
+    role_name = "role-parsons-alz-admin"
+    scope = {
+      display_name = "Parsons"
+      type = "management_group"
+    }
+    user_principal_names = ["a008851G@Parsons.com"]
+  }
+}
+
+
+# Example 4 - Assigning an app registration/service principal at a subscription
+role_assignments = {
+  "Grant service account access to sub" = {
+    app_registration_keys = ["_sys_platform_terragrunt_admin"]
+    role_name = "role-parsons-alz-admin"
+    scope = {
+      display_name = "sub-comm-corp-infraops-dev-01"
+      type = "subscription"
+    }
+  }
+}
+
+# Example 5 - Assigning a role to a user using scope ID from another deployment
+# In this example the parent folder will deploy a storage account with the key
+# "stpowerbisevenprogram"
+
+# terragrunt.hcl:
+include "root" {
+  path = find_in_parent_folders("azure.hcl")
+}
+
+dependency "storage" {
+  config_path = "../"
+}
+
+inputs = {
+  role_assignments = {
+    "Grant access to stpowerbisevenprogram" = {
+      role_name = "role-parsons-alz-admin"
+      scope = {
+        id = dependency.storage.outputs.storage_accounts["stpowerbisevenprogram"].id
+      }
+      user_principal_names = [
+        "mohamed.sabbah@parsons.com",
+      ]
+    }
+  }
+}

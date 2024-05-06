@@ -1,0 +1,64 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "NotAction": [
+        "iam:*",
+        "organizations:*",
+        "route53:*",
+        "budgets:*",
+        "ce:*",
+        "waf:*",
+        "cloudfront:*",
+        "globalaccelerator:*",
+        "importexport:*",
+        "support:*",
+        "trustedadvisor:*",
+        "wellarchitected:*",
+        "mobileanalytics:*",
+        "health:*",
+        "shield:*",
+        "route53domains:*",
+        "guardduty:*",
+        "config:*",
+        "cloudformation:*",
+        "directconnect:*",
+        "ec2:DescribeTransitGateways",
+        "ec2:DescribeVpnGateways",
+        "ec2:DescribeAccountAttributes",
+        "ec2:DescribeNetworkInterfaces",
+        "ec2:DescribeRegions",
+        "ec2:DescribeVpcs",
+        "ec2:DescribeInternetGateways",
+        "ec2:DescribeSubnets",
+        "ec2:DescribeRouteTables",
+        "ec2:DescribeNetworkAcls",
+        "ec2:DescribeSecurityGroups",
+        "ec2:DeleteVpc",
+        "ec2:DetachInternetGateway",
+        "ec2:DeleteInternetGateway",
+        "ec2:DeleteSubnet",
+        "ec2:DeleteRoute",
+        "ec2:DeleteRouteTable",
+        "ec2:DeleteNetworkAcl",
+        "ec2:DeleteNetworkAclEntry",
+        "ec2:DeleteSecurityGroup"
+      ],
+      "Resource": "*",
+      "Effect": "Deny",
+      "Condition": {
+        "StringNotEquals": {
+          "aws:RequestedRegion": [
+            "us-east-1",
+            "us-east-2",
+            "us-west-2",
+            "us-gov-west-1",
+            "us-gov-east-1",
+            "eu-west-1",
+            "me-south-1"
+          ]
+        }
+      }
+    }
+  ]
+}

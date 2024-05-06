@@ -1,0 +1,83 @@
+## custom policy definition when using a separate json file for the policy rule, with the policy definition map located in terragrunt.hcl 
+## The json file is located in the same folder as the .hcl file
+
+custom_policy_definition = {
+  "Configure a private DNS Zone ID for table groupID - Custom" = {
+    mode         = "Indexed"
+    display_name = "Configure a private DNS Zone ID for table groupID - Custom"
+    description  = "Configure private DNS zone group to override the DNS resolution for a table groupID private endpoint."
+    metadata = {
+      version  = "1.0.0"
+      category = "Storage"
+    }
+    parameters = {
+      privateDnsZoneId = {
+        type = "String"
+        metadata = {
+          description      = "Configure a private DNS Zone ID for table groupID"
+          displayName      = "Configure private DNS zone group to override the DNS resolution for a table groupID private endpoint."
+          strongType       = "Microsoft.Network/privateDnsZones"
+          assignPermissions = true
+        }
+      }
+      effect = {
+        type = "string"
+        metadata = {
+          displayName = "Effect"
+          description = "Enable or disable the execution of the policy"
+        }
+        allowedValues = ["DeployIfNotExists", "Disabled"]
+        defaultValues = "DeployIfNotExists"
+      }
+    }
+    policy_rule = file("custom_policy.json")
+  }
+}
+
+## custom policy definition when putting the policy rule in a multi-line string variable, this would be located in the 
+## .tfvars file
+
+custom_policy_definition = {
+  "Configure a private DNS Zone ID for table groupID - Custom" = {
+    mode         = "Indexed"
+    display_name = "Configure a private DNS Zone ID for table groupID - Custom"
+    description  = "Configure private DNS zone group to override the DNS resolution for a table groupID private endpoint."
+    metadata = {
+      version  = "1.0.0"
+      category = "Storage"
+    }
+    parameters = {
+      privateDnsZoneId = {
+        type = "String"
+        metadata = {
+          description      = "Configure a private DNS Zone ID for table groupID"
+          displayName      = "Configure private DNS zone group to override the DNS resolution for a table groupID private endpoint."
+          strongType       = "Microsoft.Network/privateDnsZones"
+          assignPermissions = true
+        }
+      }
+      effect = {
+        type = "string"
+        metadata = {
+          displayName = "Effect"
+          description = "Enable or disable the execution of the policy"
+        }
+        allowedValues = ["DeployIfNotExists", "Disabled"]
+        defaultValues = "DeployIfNotExists"
+      }
+    }
+    policy_rule = <<POLICY_RULE
+      {
+        "if": {
+          "not": {
+            "field": "location",
+            "in": "[parameters('allowedLocations')]"
+          }
+        },
+        "then": {
+          "effect": "audit"
+        }
+      }
+    POLICY_RULE
+  }
+}

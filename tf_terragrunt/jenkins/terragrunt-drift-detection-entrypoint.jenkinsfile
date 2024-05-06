@@ -1,0 +1,52 @@
+def terragruntModuleGroups
+
+pipeline {
+  agent { label 'ecs-rockylinux8_openjdk17_jenkins_agent_all' }
+  options {
+    ansiColor('xterm')
+    buildDiscarder(logRotator(daysToKeepStr: "15"))
+    checkoutToSubdirectory('tf_terragrunt')
+  }
+  triggers {
+    cron('TZ=America/New_York\n* 4 * * *') // Every night at 4 AM Eastern
+  }
+  stages {
+    stage('Get Terragrunt modules') {
+      steps {
+        script {
+          dir('tf_terragrunt') {
+            // Use replace() to convert syntax from JSON to Groovy map
+            // Use evaluate() to convert a string representation of a Groovy map to an object
+            terragruntModuleGroups = evaluate(sh(
+              returnStdout: true,
+              script: 'terragrunt output-module-groups --terragrunt-config ignore_me.hcl'
+              ).trim().replace("{", "[").replace("}", "]"))
+            echo "Found ${terragruntModuleGroups.size()} module groups: ${terragruntModuleGroups}"
+          }
+        }
+      }
+    }
+    stage('Plan Terragrunt modules') {
+      steps {
+        script {
+          terragruntModuleGroups.each { group ->
+            echo "Processing ${group.value.size()} modules in ${group.key}..."
+            def tasks = [:] // Empty map to place the jobs to run in parallel
+            for (modulePath in group.value) {
+              def jobName = '/terraform/terragrunt-detect-drift-dev'
+              echo "Adding Terragrunt module to job list: ${modulePath}"
+              // Save modulePath again before using it, otherwise it only builds 1 job
+              // See: https://issues.jenkins.io/browse/JENKINS-55426
+              def workingDir = modulePath
+              def parameters = [string(name: 'WORKING_DIR', value: workingDir)]
+              tasks[modulePath] = { build job: jobName, parameters: parameters }
+            }
+            echo "Starting parallel builds for ${group.key} Terragrunt modules..."
+            // parallel tasks
+            echo "${group.key} module builds have all completed"
+          }
+        }
+      }
+    }
+  }
+}

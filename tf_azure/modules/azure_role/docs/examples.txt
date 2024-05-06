@@ -1,0 +1,34 @@
+# Example 1 - RBAC role for BU subscription owners
+azure_roles = {
+  "roles-01" = {
+    role_definition = {
+      "role-subscription-ad-tips-dev-01-admin" = {
+        actions          = ["*"]
+        data_actions     = []
+        not_actions = [
+          "Microsoft.Authorization/elevateAccess/Action",
+          "Microsoft.Authorization/*/Delete",
+          "Microsoft.Authorization/*/Write",
+          "Microsoft.Blueprint/blueprintAssignments/delete",
+          "Microsoft.Blueprint/blueprintAssignments/write",
+          "Microsoft.Compute/galleries/share/action",
+          "Microsoft.Insights/DiagnosticSettings/Delete",
+          "Microsoft.Insights/DiagnosticSettings/Write",
+          "Microsoft.Network/virtualHubs/*",
+          "Microsoft.Network/VirtualNetworks/Delete",
+          "Microsoft.Network/virtualNetworks/subnets/Delete",
+          "Microsoft.Network/virtualNetworks/virtualNetworkPeerings/Delete",
+          "Microsoft.Network/virtualNetworks/virtualNetworkPeerings/Write",
+          "Microsoft.Network/VirtualNetworks/Write",
+          "Microsoft.Network/virtualRouters/Delete",
+          "Microsoft.Network/virtualRouters/peerings/Delete",
+          "Microsoft.Network/virtualRouters/peerings/Write",
+          "Microsoft.Network/virtualRouters/Write",
+          "Microsoft.Network/virtualWans/*"
+        ]
+        not_data_actions = []
+        role_description = "Subscription role to allow for all actions with some network exceptions."
+      }
+    }
+  }
+}

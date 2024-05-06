@@ -1,0 +1,97 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "DenyCFStacksForServiceCatalog",
+      "Action": [
+        "cloudformation:UpdateStack",
+        "cloudformation:DeleteStack",
+        "cloudformation:CreateStack"
+      ],
+      "Resource": [
+        "arn:aws:cloudformation:*:*:stack/SC-*",
+        "arn:aws:cloudformation:*:*:stack/StackSet-*"
+      ],
+      "Effect": "Deny",
+      "Condition": {
+        "StringNotLike": {
+          "aws:PrincipalARN": [
+            "arn:aws:iam::*:role/SAMLAdminRole",
+            "arn:aws:iam::*:role/aws-reserved/sso.amazonaws.com/AWSReservedSSO_PS_Policy_Admin*",
+            "arn:aws:iam::*:role/aws-reserved/sso.amazonaws.com/AWSReservedSSO_ADMIN-Role*",
+            "arn:aws:iam::*:role/OrganizationAccountAccessRole",
+            "arn:aws:iam::*:role/service-role/StackSet-base*",
+            "arn:aws:iam::*:role/service-role/SC-*",
+            "arn:aws:iam::*:role/stacksets-exec*",
+            "arn:aws:iam::*:user/_sys_jenkins_pipeline"
+          ]
+        }
+      }
+    },
+    {
+      "Sid": "DenyUpdatesIAMPasswordPolicyUserPasswordsIdentityProviders",
+      "Action": [
+        "iam:UpdateAccountPasswordPolicy",
+        "iam:DeleteAccountPasswordPolicy",
+        "iam:CreateLoginProfile",
+        "iam:DeleteLoginProfile",
+        "iam:UpdateLoginProfile",
+        "iam:CreateSAMLProvider",
+        "iam:DeleteSAMLProvider",
+        "iam:CreateOpenIDConnectProvider",
+        "iam:DeleteOpenIDConnectProvider"
+      ],
+      "Resource": "*",
+      "Effect": "Deny",
+      "Condition": {
+        "StringNotLike": {
+          "aws:PrincipalARN": [
+            "arn:aws:iam::*:role/SAMLAdminRole",
+            "arn:aws:iam::*:role/aws-reserved/sso.amazonaws.com/AWSReservedSSO_PS_Policy_Admin*",
+            "arn:aws:iam::*:role/aws-reserved/sso.amazonaws.com/AWSReservedSSO_ADMIN-Role*",
+            "arn:aws:iam::*:role/OrganizationAccountAccessRole",
+            "arn:aws:iam::*:role/service-role/StackSet-base*",
+            "arn:aws:iam::*:role/service-role/SC-*",
+            "arn:aws:iam::*:role/stacksets-exec*",
+            "arn:aws:iam::*:user/_sys_jenkins_pipeline",
+            "arn:aws:iam::*:role/service-role/_sys_terragrunt_admin_role"
+          ]
+        }
+      }
+    },
+    {
+      "Sid": "DenyRoleUpdates",
+      "Action": [
+        "iam:DeleteRole",
+        "iam:AttachRolePolicy",
+        "iam:DetachRolePolicy",
+        "iam:PutRolePolicy",
+        "iam:DeleteRolePolicy"
+      ],
+      "Resource": [
+        "arn:aws:iam::*:role/SAMLAdminRole",
+        "arn:aws:iam::*:role/OrganizationAccountAccessRole",
+        "arn:aws:iam::*:role/service-role/SC-*",
+        "arn:aws:iam::*:role/stacksets-exec*",
+        "arn:aws:iam::*:role/service-role/StackSet-base*",
+        "arn:aws:iam::*:role/servicecatalog-puppet/PuppetDeployInSpokeRole",
+        "arn:aws:iam::*:role/servicecatalog-puppet/PuppetRole"
+      ],
+      "Effect": "Deny",
+      "Condition": {
+        "StringNotLike": {
+          "aws:PrincipalARN": [
+            "arn:aws:iam::*:role/SAMLAdminRole",
+            "arn:aws:iam::*:role/aws-reserved/sso.amazonaws.com/AWSReservedSSO_PS_Policy_Admin*",
+            "arn:aws:iam::*:role/aws-reserved/sso.amazonaws.com/AWSReservedSSO_ADMIN-Role*",
+            "arn:aws:iam::*:role/OrganizationAccountAccessRole",
+            "arn:aws:iam::*:role/service-role/StackSet-base*",
+            "arn:aws:iam::*:role/service-role/SC-*",
+            "arn:aws:iam::*:role/stacksets-exec*",
+            "arn:aws:iam::*:user/_sys_jenkins_pipeline"
+          ]
+        }
+      }
+    }
+  ]
+}

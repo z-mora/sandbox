@@ -1,0 +1,41 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "DenyCreateNetworkInterface",
+      "Effect": "Deny",
+      "Action": [
+        "ec2:CreateNetworkInterface"
+      ],
+      "Resource": [
+        "arn:aws:ec2:us-east-1:*:subnet/subnet-09dec440a1b565bcf",
+        "arn:aws:ec2:us-east-1:*:subnet/subnet-0ac686168b39d5264"
+      ],
+      "Condition": {
+        "StringNotLike": {
+          "aws:PrincipalARN": [
+            "arn:aws:iam::*:role/aws-reserved/sso.amazonaws.com/AWSReservedSSO_ADMIN-Role*",
+            "arn:aws:iam::*:role/OrganizationAccountAccessRole",
+            "arn:aws:iam::*:role/service-role/_sys_terragrunt_admin_role",
+            "arn:aws:iam::*:role/service-role/StackSet-base*",
+            "arn:aws:iam::*:role/stacksets-exec*",
+            "arn:aws:iam::*:user/_sys_jenkins_pipeline"
+          ]
+        }
+      }
+    },
+    {
+      "Sid": "DenyRunInstances",
+      "Effect": "Deny",
+      "Action": "ec2:RunInstances",
+      "Resource": "arn:aws:ec2:*:*:subnet/*",
+      "Condition": {
+        "ArnEquals": {
+          "ec2:Vpc": [
+            "arn:aws:ec2:us-east-1:470088140503:vpc/vpc-0d4713b3de467b3ac"
+          ]
+        }
+      }
+    }
+  ]
+}

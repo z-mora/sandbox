@@ -1,0 +1,122 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "DenyCFStacksForServiceCatalog",
+      "Action": [
+        "cloudformation:UpdateStack",
+        "cloudformation:DeleteStack",
+        "cloudformation:CreateStack"
+      ],
+      "Resource": [
+        "arn:aws-us-gov:cloudformation:*:*:stack/SC-*",
+        "arn:aws-us-gov:cloudformation:*:*:stack/StackSet-*"
+      ],
+      "Effect": "Deny",
+      "Condition": {
+        "StringNotLike": {
+          "aws:PrincipalARN": [
+            "arn:aws-us-gov:iam::*:role/SAMLAdminRole",
+            "arn:aws-us-gov:iam::*:role/aws-reserved/sso.amazonaws.com/us-gov-west-1/AWSReservedSSO_ADMIN-Role*",
+            "arn:aws-us-gov:iam::*:role/OrganizationAccountAccessRole",
+            "arn:aws-us-gov:iam::*:role/service-role/SC-*",
+            "arn:aws-us-gov:iam::*:role/SC-*",
+            "arn:aws-us-gov:iam::*:role/stacksets-exec*",
+            "arn:aws-us-gov:iam::*:user/_sys_jenkins_pipeline",
+            "arn:aws-us-gov:iam::*:role/servicecatalog-puppet/PuppetRole"
+          ]
+        }
+      }
+    },
+    {
+      "Sid": "DenyUpdatesIAMPasswordPolicyUserPasswordsIdentityProviders",
+      "Action": [
+        "iam:UpdateAccountPasswordPolicy",
+        "iam:DeleteAccountPasswordPolicy",
+        "iam:CreateLoginProfile",
+        "iam:DeleteLoginProfile",
+        "iam:UpdateLoginProfile",
+        "iam:CreateSAMLProvider",
+        "iam:DeleteSAMLProvider",
+        "iam:CreateOpenIDConnectProvider",
+        "iam:DeleteOpenIDConnectProvider"
+      ],
+      "Resource": "*",
+      "Effect": "Deny",
+      "Condition": {
+        "StringNotLike": {
+          "aws:PrincipalARN": [
+            "arn:aws-us-gov:iam::*:role/SAMLAdminRole",
+            "arn:aws-us-gov:iam::*:role/aws-reserved/sso.amazonaws.com/us-gov-west-1/AWSReservedSSO_ADMIN-Role*",
+            "arn:aws-us-gov:iam::*:role/OrganizationAccountAccessRole",
+            "arn:aws-us-gov:iam::*:role/service-role/StackSet-base*",
+            "arn:aws-us-gov:iam::*:role/service-role/SC-*",
+            "arn:aws-us-gov:iam::*:role/SC-*",
+            "arn:aws-us-gov:iam::*:role/stacksets-exec*",
+            "arn:aws-us-gov:iam::*:user/_sys_jenkins_pipeline",
+            "arn:aws-us-gov:iam::*:role/service-role/_sys_terragrunt_admin_role"
+          ]
+        }
+      }
+    },
+    {
+      "Sid": "DenyRoleUpdates",
+      "Action": [
+        "iam:DeleteRole",
+        "iam:AttachRolePolicy",
+        "iam:DetachRolePolicy",
+        "iam:PutRolePolicy",
+        "iam:DeleteRolePolicy"
+      ],
+      "Resource": [
+        "arn:aws-us-gov:iam::*:role/SAMLAdminRole",
+        "arn:aws-us-gov:iam::*:role/OrganizationAccountAccessRole",
+        "arn:aws-us-gov:iam::*:role/service-role/StackSet-base*",
+        "arn:aws-us-gov:iam::*:role/service-role/SC-*",
+        "arn:aws-us-gov:iam::*:role/SC-*",
+        "arn:aws-us-gov:iam::*:role/stacksets-exec*",
+        "arn:aws-us-gov:iam::*:role/servicecatalog-puppet/PuppetDeployInSpokeRole",
+        "arn:aws-us-gov:iam::*:role/servicecatalog-puppet/PuppetRole"
+      ],
+      "Effect": "Deny",
+      "Condition": {
+        "StringNotLike": {
+          "aws:PrincipalARN": [
+            "arn:aws-us-gov:iam::*:role/SAMLAdminRole",
+            "arn:aws-us-gov:iam::*:role/aws-reserved/sso.amazonaws.com/us-gov-west-1/AWSReservedSSO_ADMIN-Role*",
+            "arn:aws-us-gov:iam::*:role/OrganizationAccountAccessRole",
+            "arn:aws-us-gov:iam::*:role/service-role/SC-*",
+            "arn:aws-us-gov:iam::*:role/SC-*",
+            "arn:aws-us-gov:iam::*:role/stacksets-exec*",
+            "arn:aws-us-gov:iam::*:user/_sys_jenkins_pipeline",
+            "arn:aws-us-gov:iam::*:user/_sys_jenkins_pipeline",
+            "arn:aws-us-gov:iam::*:role/servicecatalog-puppet/PuppetRole"
+          ]
+        }
+      }
+    },
+    {
+      "Sid": "DenyPolicyUpdate",
+      "Effect": "Deny",
+      "Action": [
+        "iam:CreatePolicyVersion",
+        "iam:DeletePolicy",
+        "iam:DeletePolicyVersion",
+        "iam:SetDefaultPolicyVersion"
+      ],
+      "Resource": [
+        "arn:aws-us-gov:iam::337194358913:policy/IAM-SAML-OKTA-ADMIN-ROLE-SAMLAdminPolicy*"
+      ],
+      "Condition": {
+        "StringNotLike": {
+          "aws:PrincipalARN": [
+            "arn:aws-us-gov:iam::*:role/SAMLAdminRole",
+            "arn:aws-us-gov:iam::*:role/aws-reserved/sso.amazonaws.com/us-gov-west-1/AWSReservedSSO_ADMIN-Role*",
+            "arn:aws-us-gov:iam::*:role/OrganizationAccountAccessRole",
+            "arn:aws-us-gov:iam::*:user/_sys_jenkins_pipeline"
+          ]
+        }
+      }
+    }
+  ]
+}

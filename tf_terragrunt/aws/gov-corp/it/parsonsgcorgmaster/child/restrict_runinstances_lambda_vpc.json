@@ -1,0 +1,19 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "DenyRunInstances",
+      "Effect": "Deny",
+      "Action": "ec2:RunInstances",
+      "Resource": "arn:aws-us-gov:ec2:*:*:subnet/*",
+      "Condition": {
+        "ArnEquals": {
+          "ec2:Vpc": [
+            "arn:aws-us-gov:ec2:us-gov-east-1:305517462403:vpc/vpc-0626e9a27ae258acc",
+            "arn:aws-us-gov:ec2:us-gov-west-1:305517462403:vpc/vpc-06ba636abb091cadd"
+          ]
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,50 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "DenyVPCActions",
+      "Action": [
+        "ec2:CreateInternetGateway",
+        "ec2:DeleteInternetGateway",
+        "ec2:AttachInternetGateway",
+        "ec2:DetachInternetGateway",
+        "ec2:CreateEgressOnlyInternetGateway",
+        "ec2:CreateVpcPeeringConnection",
+        "ec2:DeleteVpcPeeringConnection",
+        "ec2:AcceptVpcPeeringConnection",
+        "ec2:CreateNatGateway",
+        "ec2:DeleteNatGateway",
+        "ec2:CreateRouteTable",
+        "ec2:DeleteRouteTable",
+        "ec2:DisassociateRouteTable",
+        "ec2:CreateVpc",
+        "ec2:DeleteVpc",
+        "ec2:CreateSubnet",
+        "ec2:DeleteSubnet",
+        "ec2:CreateDefault*",
+        "ec2:CreateTransitGateway*",
+        "ec2:DeleteFlowLogs",
+        "ec2:DisableEbsEncryptionByDefault",
+        "globalaccelerator:Create*",
+        "globalaccelerator:Delete*",
+        "globalaccelerator:Update*",
+        "directconnect:*"
+      ],
+      "Resource": "*",
+      "Effect": "Deny",
+      "Condition": {
+        "StringNotLike": {
+          "aws:PrincipalARN": [
+            "arn:aws:iam::*:role/aws-reserved/sso.amazonaws.com/AWSReservedSSO_ADMIN-Role*",
+            "arn:aws:iam::*:role/OrganizationAccountAccessRole",
+            "arn:aws:iam::*:role/service-role/_sys_terragrunt_admin_role",
+            "arn:aws:iam::*:role/service-role/StackSet-base*",
+            "arn:aws:iam::*:role/service-role/SC-*",
+            "arn:aws:iam::*:role/stacksets-exec*",
+            "arn:aws:iam::*:user/_sys_jenkins_pipeline"
+          ]
+        }
+      }
+    }
+  ]
+}

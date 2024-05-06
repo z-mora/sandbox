@@ -1,0 +1,7 @@
+# Example 1
+availability_sets = {
+  "test-availability-set-1" = {
+    location = "eastus2"
+    resource_group_name = "rg-infraops-prod-01"
+  }
+}

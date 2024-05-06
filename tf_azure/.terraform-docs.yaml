@@ -1,0 +1,27 @@
+content: |-
+  {{ include "docs/description.md" }}
+
+  {{ .Inputs }}
+
+  {{ .Outputs }}
+
+  {{ .Resources }}
+
+  ## Examples
+
+  ```hcl
+  {{ include "docs/examples.txt" }}
+  ```
+
+formatter: "markdown table"
+
+output:
+  file: README.md
+  mode: replace
+  template: |-
+    <!-- BEGIN_TF_DOCS -->
+    {{ .Content }}
+    <!-- END_TF_DOCS -->
+
+recursive:
+  enabled: true

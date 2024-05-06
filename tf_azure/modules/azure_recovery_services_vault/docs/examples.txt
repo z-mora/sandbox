@@ -1,0 +1,59 @@
+# Example 1
+recovery_services_vaults = {
+  "recovery-services-vault-test" = {
+    backup_policies = {
+      "test-backup-policy" = {
+        backup = {
+          frequency = "Daily"
+          time      = "23:00"
+        }
+        resource_group_name = "rg-cps-prod-01"
+        retention_daily = {
+          count = 10
+        }
+        retention_monthly = {
+          count    = 7
+          weekdays = ["Sunday", "Wednesday"]
+          weeks    = ["First", "Last"]
+        }
+        retention_weekly = {
+          count    = 1
+          weekdays = ["Sunday"]
+        }
+        retention_yearly = {
+          count    = 77
+          months   = ["January"]
+          weekdays = ["Sunday"]
+          weeks    = ["Last"]
+        }
+      }
+    }
+    backup_policies_workloads = {
+      "test-backup-workload-policy" = {
+        protection_policies = {
+          "test-protection-policy" = {
+            backup = {
+              frequency = "Daily"
+              time      = "15:00"
+            }
+            policy_type = "Full"
+            retention_daily = {
+              count = 8
+            }
+          }
+        }
+        resource_group_name = "rg-cps-prod-01"
+        settings = {
+          compression_enabled = false
+          time_zone           = "UTC"
+        }
+        workload_type       = "SQLDataBase"
+      }
+    }
+    location                      = "eastus2"
+    public_network_access_enabled = false
+    resource_group_name           = "rg-cps-prod-01"
+    sku                           = "Standard"
+    soft_delete_enabled           = true
+  }
+}

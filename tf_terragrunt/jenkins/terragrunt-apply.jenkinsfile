@@ -1,0 +1,226 @@
+// Global variables (not env vars), use for non-strings
+def isAWS = params.WORKING_DIR.contains('aws')
+def isAWSGov = params.WORKING_DIR.contains('child') ? true : false
+def isAzure = params.WORKING_DIR.contains('azure')
+def isAzureGov = isAzure && params.WORKING_DIR.contains('gov')
+def isCrowdStrikeFalcon = params.WORKING_DIR.contains('crowdstrike_falcon') ? true : false
+def isGov = isAWSGov || isAzureGov
+def isProd = JOB_NAME.toLowerCase().contains('prod') ? true : false
+env.REPO = 'tf_terragrunt' // Outside of pipeline because it's used by an option
+
+pipeline {
+  agent { label 'ecs-rockylinux8_openjdk17_jenkins_agent_all' }
+  parameters {
+    booleanParam(
+      defaultValue: false,
+      description: """
+      Should the pipeline be retried once if it fails. This should only be used during an
+      apply for secret rotation, specifically for an Azure app registration. The pipeline
+      may need to be retried, as it can fail due to a race condition where the _sys_terragrunt_admin
+      creds used by Jenkins are rotated before Terraform configures the azurerm providers.
+      If this occurs, the entire pipeline needs to be retried because the 'Authenticate to Azure'
+      stage needs to be reran in addition to the apply.
+      """,
+      name: 'RETRY_PIPELINE'
+    )
+    string(
+      name: 'TERRAGRUNT_BRANCH',
+      defaultValue: 'main',
+      description: 'tf_terragrunt branch - default value set to `main`',
+      trim:  true
+    )
+    string(
+      name: 'TERRAFORM_BRANCH',
+      defaultValue: 'main',
+      description: 'Terraform source branch - default value set to `main`',
+      trim: true
+    )
+    string(
+      name: 'WORKING_DIR',
+      description: '''The relative path of the working directory (aka Terragrunt module)
+        within tf_terragrunt. For example:
+        aws/comm-corp/it/oce-infraops-sandbox-01''',
+      trim: true
+    )
+  }
+  environment {
+    PARTITION = "${isGov ? 'gov' : 'comm'}"
+    SLACK_CHANNEL = "${isProd ? '#alerts-infrastructure-cloud' : '#testing'}"
+    TERRAGRUNT_AUTO_INIT = false
+    TF_IN_AUTOMATION = true
+    TF_INPUT = false
+    VAULT_ADDR = 'https://hcvault.parsons.us'
+    WORKING_DIR_ABSOLUTE = "${WORKSPACE}/${REPO}/${WORKING_DIR}"
+  }
+  options {
+    ansiColor('xterm')
+    buildDiscarder(logRotator(daysToKeepStr:'15'))
+    checkoutToSubdirectory(REPO)
+    // Use params. to reference param so the type is actually bool and not string
+    retry(params.RETRY_PIPELINE ? 2 : 1)
+  }
+  stages {
+    stage('Set Build Name') {
+      steps {
+        script { currentBuild.displayName = "#${BUILD_ID} - ${WORKING_DIR}" }
+      }
+    }
+    stage('Notify Bitbucket') {
+      when { triggeredBy 'BuildUpstreamCause' } // Avoid build spam from manual testing
+      steps {
+        notifyBitbucket(
+          commitSha1: GIT_COMMIT,
+          credentialsId: 'opde_jenkins_sys_account',
+          stashServerBaseUrl: 'https://bitbucket.parsons.com'
+        )
+      }
+    }
+    stage('Setup') {
+      steps {
+        parForwardTrust()
+        retry(3) {
+          sh '''
+            pip3 install python-hcl2
+            terraform -version
+            terragrunt -version
+          '''
+        }
+      }
+    }
+    stage('Authenticate to Vault') {
+      options { retry(3) }
+      steps {
+        echo 'Getting a vault token'
+        withCredentials([[
+          $class: 'VaultTokenCredentialBinding',
+          credentialsId: 'hcvault-approle-team-cloud',
+          vaultAddr: VAULT_ADDR
+        ]]) {
+          script {
+            env.VAULT_TOKEN = sh(returnStdout: true, script: 'echo $VAULT_TOKEN').trim()
+          }
+        }
+      }
+    }
+    stage('Authenticate to AWS') {
+      when { expression { isAWS } }
+      steps {
+        // Always get Comm creds, both parsons.com/.us are in Comm Route 53
+        // Add named profiles to AWS creds file
+        script {
+          def partitions = [ [folder: 'comm', profile: 'oce-ss']  ]
+          if (PARTITION == 'gov') {
+            partitions.add([folder: 'gov', profile: 'pce-ss'])
+          }
+          for (p in partitions) {
+            sh """
+              set +x
+              echo Getting AWS ${p.folder} creds from vault
+              key_path=kv2_opde_it_devs/team_cloud/aws/${p.folder}/_sys_terragrunt_admin
+              id=\$(vault kv get -field=value \${key_path}/access_key_id)
+              key=\$(vault kv get -field=value \${key_path}/secret_access_key)
+              echo Creating profile ${p.profile} in credentials file
+              aws configure set profile.${p.profile}.aws_access_key_id \$id
+              aws configure set profile.${p.profile}.aws_secret_access_key \$key
+            """
+          }
+        }
+      }
+    }
+    stage('Authenticate to Azure') {
+      when { expression { isAzure } }
+      steps {
+        script {
+          echo 'Getting Azure creds from vault and setting env vars'
+          def keyPath = "kv2_opde_it_devs/team_cloud/azure/${PARTITION}/_sys_terragrunt_admin"
+          env.ARM_CLIENT_ID = sh(returnStdout: true,
+            script: "vault kv get -field=value ${keyPath}/client_id").trim()
+          env.ARM_CLIENT_SECRET = sh(returnStdout: true,
+            script: "vault kv get -field=value ${keyPath}/client_secret").trim()
+          env.ARM_TENANT_ID = sh(returnStdout: true,
+            script: "vault kv get -field=value ${keyPath}/tenant_id").trim()
+          if (isAzureGov) {
+            env.ARM_ENVIRONMENT = 'usgovernment' // Defaults to public
+            sh 'az cloud set --name AzureUSGovernment'
+          }
+        }
+        sh '''
+          set +x
+          # Must use -p=, the secret can start with '-', https://github.com/Azure/azure-cli/issues/7054
+          az login --service-principal -u=$ARM_CLIENT_ID -p=$ARM_CLIENT_SECRET -t=$ARM_TENANT_ID -o none
+        '''
+      }
+    }
+    stage('Authenticate to CrowdStrike Falcon') {
+      when { expression { isCrowdStrikeFalcon } }
+      steps {
+        script {
+          echo 'Getting CrowdStrike Falcon creds from vault and setting env vars'
+          def keyPath = 'kv2_opde_it_devs/team_cloud/crowdstrike/falcon'
+          env.TF_VAR_crowdstrike_falcon_client_id = sh(returnStdout: true,
+            script: "vault kv get -field=value ${keyPath}/client_id").trim()
+          env.TF_VAR_crowdstrike_falcon_client_secret = sh(returnStdout: true,
+            script: "vault kv get -field=value ${keyPath}/client_secret").trim()
+        }
+      }
+    }
+    stage('Init') {
+      options { retry(3) }
+      steps {
+        dir(WORKING_DIR_ABSOLUTE) {
+          sh 'terragrunt init'
+        }
+      }
+    }
+    stage('aws_gov_child_setup.py') {
+      when {
+        expression {
+          // The setup only needs to be performed if the Terragrunt module in the child
+          // is managing the AWS account.
+          isAWSGov && fileExists("${WORKING_DIR_ABSOLUTE}/aws_account.tfvars")
+        }
+      }
+      steps {
+        dir(WORKING_DIR_ABSOLUTE) {
+          // Find import.tf in the .terragrunt-cache folder to get the GovCloud child
+          // account ID. The script will exit without doing anything if it finds that
+          // the account already in the org.
+          sh '''
+            cache_dir=$(terragrunt terragrunt-info | jq .WorkingDir --raw-output)
+            gov_account_id=$(cat ${cache_dir}/import.tf | grep -Po "\\d{12}")
+            python3 $WORKSPACE/$REPO/jenkins/aws_gov_child_setup.py ${gov_account_id} -p pce-ss
+          '''
+        }
+      }
+    }
+    stage('Apply') {
+      steps {
+        dir(WORKING_DIR_ABSOLUTE) {
+          sh 'terragrunt apply -auto-approve'
+        }
+      }
+    }
+  }
+  post {
+    always {
+      script {
+        if (currentBuild.upstreamBuilds.size() > 0) { // Avoid build spam from manual testing
+          notifyBitbucket(
+            commitSha1: GIT_COMMIT,
+            credentialsId: 'opde_jenkins_sys_account',
+            stashServerBaseUrl: 'https://bitbucket.parsons.com'
+          )
+        }
+      }
+      script {
+        if (currentBuild.currentResult != 'SUCCESS') {
+          slackSend(
+            channel: SLACK_CHANNEL,
+            color: 'danger',
+            message: "${currentBuild.currentResult}: <${RUN_DISPLAY_URL}|${JOB_NAME} ${BUILD_DISPLAY_NAME}>",
+          )
+        }
+      }
+    }
+  }
+}

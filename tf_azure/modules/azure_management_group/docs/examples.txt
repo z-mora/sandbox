@@ -1,0 +1,15 @@
+# Example 1 - Flat groups
+management_groups = {
+  "mg-ci-prod-01" = {}
+  "mg-fed-prod-01" = {}
+  "mg-infra-prod-01" = {}
+  "mg-network-prod-01" = {}
+  "mg-security-prod-01" = {}
+}
+
+# Example 2 - Nested management groups
+management_groups = {
+  "mg-ci-prod-01" = {
+    "mg-ci-prod-01-nested-group-01" = {}
+  }
+}

@@ -1,0 +1,30 @@
+{
+    "properties": {
+      "displayName": "Audit Owner Tags",
+      "policyType": "Custom",
+      "mode": "Indexed",
+      "description": "This policy audits the tags on resources.",
+      "metadata": {
+        "version": "1.0.1",
+        "category": "Tags"
+      },
+      "parameters": {
+        "tagName": {
+          "type": "String",
+          "metadata": {
+            "description": "Name of the tag, such as 'environment'",
+            "displayName": "Tag Name"
+          }
+        }
+      },
+      "policyRule": {
+        "if": {
+            "field": "[concat('tags[', parameters('tagName'), ']')]",
+            "exists": "false"
+        },
+        "then": {
+          "effect": "audit"
+        }
+      }
+    }
+  }

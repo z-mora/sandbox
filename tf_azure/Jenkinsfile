@@ -1,0 +1,121 @@
+/*
+Corresponding job:
+terraform/terraform-standards-check
+*/
+
+def isDev = JOB_NAME.toLowerCase().contains('dev') ? true : false
+def isPR = env.CHANGE_ID != null
+env.REPO = 'tf_azure' // Outside of pipeline because it's used by an option
+
+pipeline {
+  agent { label 'ecs-rockylinux8_openjdk17_jenkins_agent_all' }
+  options {
+    checkoutToSubdirectory(REPO)
+    ansiColor('xterm')
+  }
+  stages {
+    stage('Setup') {
+      when { expression { isPR } }
+      options { retry(3) }
+      steps {
+        parForwardTrust()
+        sh '''
+          curl -s "https://raw.githubusercontent.com/terraform-linters/tflint/master/install_linux.sh" | bash
+          go install github.com/terraform-docs/terraform-docs@v0.16.0
+          terraform -version
+        '''
+      }
+    }
+    stage('Validate') {
+      when { expression { isPR } }
+      steps {
+        dir(REPO) {
+          retry(3) {
+            sh 'terraform init -backend=false'
+          }
+          sh 'terraform validate'
+        }
+      }
+    }
+    stage('Lint') {
+      when { expression { isPR } }
+      steps {
+        dir(REPO) {
+          sh '''
+            tflint --init
+            tflint
+            for module in modules/* ; do
+              tflint --chdir=$module --config "$(pwd)/.tflint.hcl"
+            done
+          '''
+        }
+      }
+    }
+    stage('Format') {
+      when { expression { isPR } }
+      steps {
+        dir(REPO) {
+            sh 'terraform fmt -recursive'
+        }
+      }
+    }
+    stage('Generate Docs') {
+      when { expression { isPR } }
+      steps {
+        dir(REPO) {
+            sh '$(go env GOPATH)/bin/terraform-docs .'
+        }
+      }
+    }
+    stage('Commit') {
+      when { expression { isPR } }
+      steps {
+        dir(REPO) {
+          withCredentials([gitUsernamePassword(credentialsId: 'opde_jenkins_sys_account')]) {
+            sh '''
+              if [[ -z $(git status --porcelain) ]]; then
+                echo 'No changes to commit'
+              else
+                # If the change branch is behind main a merge commit will also be
+                # pushed (the merge commit that's being tested) so it's up to date
+                git checkout -b jenkins-temp-${CHANGE_BRANCH}
+                git add .
+                git commit -m 'terraform-standards-check'
+                git checkout $CHANGE_BRANCH
+                git merge jenkins-temp-${CHANGE_BRANCH}
+                git push
+              fi
+            '''
+          }
+        }
+      }
+    }
+  }
+  post {
+    always {
+      script {
+        // The build status will get automatically set for the commit that triggered the
+        // build. Manually add the build status for the latest commit, if there is one
+        dir(REPO) {
+          echo 'Getting latest commit...'
+          sh 'git checkout $CHANGE_BRANCH'
+          def latestCommit = sh(returnStdout: true, script: 'git rev-parse HEAD').trim()
+          if (latestCommit != GIT_COMMIT) {
+            notifyBitbucket(
+              commitSha1: latestCommit,
+              credentialsId: 'opde_jenkins_sys_account',
+              stashServerBaseUrl: 'https://bitbucket.parsons.com'
+            )
+          }
+        }
+        if (currentBuild.currentResult != 'SUCCESS') {
+          slackSend(
+            channel: '#alerts-infrastructure-cloud',
+            color: 'danger',
+            message: "${currentBuild.currentResult}: <${RUN_DISPLAY_URL}|${JOB_NAME} #${BUILD_NUMBER}>",
+          )
+        }
+      }
+    }
+  }
+}

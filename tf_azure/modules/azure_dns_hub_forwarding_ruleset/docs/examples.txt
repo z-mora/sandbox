@@ -1,0 +1,23 @@
+# Example 1 - Basic DNS hub forwarding ruleset
+dns_hub_forwarding_rulesets = {
+  dnsfrs-prod-eastus2-01 = {
+    location             = "eastus2"
+    private_resolver_key = "dnspr-prod-eastus2-01"
+    resource_group_name  = "rg-dns-prod-01"
+  }
+}
+
+# Example 2 - DNS hub forwarding ruleset with a custom rule, which forces resolution of
+# the public IP for the resource by using the Parsons DNS cache servers
+dns_hub_forwarding_rulesets = {
+  dnsfrs-hub-prod-eastus2-01 = {
+    custom_rules = {
+      "miketestpublicsa.blob.core.windows.net" = {
+        target_dns_servers = ["10.41.129.140:53", "10.41.131.230:53"]
+      }
+    }
+    location             = "eastus2"
+    private_resolver_key = "dnspr-prod-eastus2-01"
+    resource_group_name  = "rg-dns-prod-01"
+  }
+}

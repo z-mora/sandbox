@@ -1,0 +1,28 @@
+# Example 1
+private_dns_resolvers = {
+  "resolver-dns-prod-eastus2-01" = {
+    inbound_subnet_key          = "subnet-dns-prod-eastus2-01"
+    location                    = "eastus2"
+    outbound_subnet_key         = "subnet-dns-prod-eastus2-02"
+    resource_group_name         = "rg-dns-prod-01"
+    vnet_key                    = "vnet-dns-prod-eastus2-01"
+  }
+}
+
+# Example 2
+private_dns_resolvers = {
+  "resolver-dns-prod-eastus2-01" = {
+    inbound_subnet_key          = "subnet-dns-prod-eastus2-01"
+    location                    = "eastus2"
+    outbound_subnet_key         = "subnet-dns-prod-eastus2-02"
+    resource_group_name         = "rg-dns-prod-01"
+    vnet_key                    = "vnet-dns-prod-eastus2-01"
+  }
+  "resolver-dns-prod-westus-01" = {
+    inbound_subnet_key          = "subnet-dns-prod-westus-01"
+    location                    = "westus"
+    outbound_subnet_key         = "subnet-dns-prod-westus-02"
+    resource_group_name         = "rg-dns-prod-01"
+    vnet_key                    = "vnet-dns-prod-westus-01"
+  }
+}

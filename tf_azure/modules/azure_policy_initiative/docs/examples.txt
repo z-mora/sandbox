@@ -1,0 +1,107 @@
+# Example 1 - Initiative with a single policy definition in a group
+policy_initiatives = {
+  mike_test_initiative = {
+    description = "Test initiative"
+    display_name = "Mike's test policy initiative"
+    management_group_display_name = "Tenant Root Group"
+    metadata = {
+      category = "Network"
+    }
+    policy_definition_groups = {
+      Search = {
+        category = "Search"
+      }
+    }
+    policy_definition_references = {
+      "Configure Azure Cognitive Search services to use private DNS zones" = {
+        parameters = {
+          privateDnsZoneId = {
+            value = "/subscriptions/e45d6712-fcba-4a53-bcef-9f8817d2632a/resourceGroups/rg-dns-prod-01/providers/Microsoft.Network/privateDnsZones/privatelink.cognitiveservices.azure.com"
+          }
+        }
+        policy_group_names = ["Search"]
+      }
+    }
+  }
+}
+
+# Example 2 - Initiative with multiple assignments and exemptions
+policy_initiatives = {
+  mike_test_initiative = {
+    assignments = {
+      sub-comm-corp-alz-dev-01 = {
+        identity = { type = "SystemAssigned" }
+        scope_type = "subscription"
+      }
+      mg-suspended-01 = {
+        exemptions = {
+          sub-comm-corp-infraops-dev-01 = {
+            category = "Waiver"
+            description = "testing"
+            display_name = "Exempt sub-comm-corp-infraops-dev-01 from mike_test_initiative"
+            scope_type = "subscription"
+          }
+          mike-test-exemption = {
+            category = "Waiver"
+            description = "testing"
+            display_name = "Exempt mike-test-exemption from mike_test_initiative"
+            scope_type = "management_group"
+          }
+        }
+        identity = { type = "SystemAssigned" }
+        scope_type = "management_group"
+      }
+    }
+    description = "Test initiative"
+    display_name = "Mike's test policy initiative"
+    management_group_display_name = "Tenant Root Group"
+    metadata = { category = "Network" }
+    policy_definition_groups = {
+      Search = { category = "Search" }
+    }
+    policy_definition_references = {
+      "Configure Azure Cognitive Search services to use private DNS zones" = {
+        parameters = {
+          privateDnsZoneId = {
+            value = "/subscriptions/e45d6712-fcba-4a53-bcef-9f8817d2632a/resourceGroups/rg-dns-prod-01/providers/Microsoft.Network/privateDnsZones/privatelink.cognitiveservices.azure.com"
+          }
+        }
+        policy_group_names = ["Search"]
+      }
+    }
+  }
+}
+
+# Example 3 - Initiative with the same policy definition added more than once
+policy_initiatives = {
+  mike_test_initiative = {
+    description = "Test initiative"
+    display_name = "Mike's test policy initiative"
+    management_group_display_name = "Tenant Root Group"
+
+    policy_definition_references = {
+      "Configure Azure Automation accounts with private DNS zones - Webhook" = {
+        definition_display_name = "Configure Azure Automation accounts with private DNS zones"
+        parameters = {
+          privateDnsZoneId = {
+            value = "/subscriptions/e45d6712-fcba-4a53-bcef-9f8817d2632a/resourceGroups/rg-dns-prod-01/providers/Microsoft.Network/privateDnsZones/privatelink.azure-automation.net"
+          }
+          privateEndpointGroupId = {
+            value = "Webhook"
+          }
+        }
+      }
+      "Configure Azure Automation accounts with private DNS zones - DSCAndHybridWorker" = {
+        definition_display_name = "Configure Azure Automation accounts with private DNS zones"
+        parameters = {
+          privateDnsZoneId = {
+            value = "/subscriptions/e45d6712-fcba-4a53-bcef-9f8817d2632a/resourceGroups/rg-dns-prod-01/providers/Microsoft.Network/privateDnsZones/privatelink.azure-automation.net"
+          }
+          privateEndpointGroupId = {
+            value = "DSCAndHybridWorker"
+          }
+        }
+      }
+    }
+  }
+}

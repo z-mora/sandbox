@@ -1,0 +1,2 @@
+Thrinaynee is not ready to proceed with using this environment yet. She asked that we
+delete the VNet for now until they're ready so they don't incur unnecessary costs.

@@ -1,0 +1,77 @@
+{
+  "properties": {
+    "displayName": "Audit Routing to Firewall",
+    "policyType": "Custom",
+    "mode": "Indexed",
+    "description": "This policy audits subnets that do not contain routes to the firewall.",
+    "metadata": {
+      "version": "1.0.0",
+      "category": "Networking"
+    },
+    "parameters": {
+      "effect": {
+        "type": "String",
+        "metadata": {
+          "displayName": "Effect",
+          "description": "Enable or disable All Internet traffic should be routed via your deployed Azure Firewall"
+        },
+        "allowedValues": [
+          "AuditIfNotExists",
+          "Disabled"
+        ],
+        "defaultValue": "AuditIfNotExists"
+      }
+    },
+    "policyRule": {
+      "if": {
+        "allOf": [
+          {
+            "field": "type",
+            "equals": "Microsoft.Network/virtualNetworks"
+          },
+          {
+            "count": {
+              "field": "Microsoft.Network/virtualNetworks/subnets[*]",
+              "where": {
+                "allOf": [
+                  {
+                    "count": {
+                      "field": "Microsoft.Network/virtualNetworks/subnets[*].ipConfigurations[*]",
+                      "where": {
+                        "value": "[empty(field('Microsoft.Network/virtualNetworks/subnets[*].ipConfigurations[*].id'))]",
+                        "equals": false
+                      }
+                    },
+                    "greaterOrEquals": 2
+                  },
+                  {
+                    "field": "Microsoft.Network/virtualNetworks/subnets[*].routeTable",
+                    "exists": false
+                  },
+                  {
+                    "not": {
+                      "anyOf": [
+                        {
+                          "field": "Microsoft.Network/virtualNetworks/subnets[*].name",
+                          "equals": "AzureBastionSubnet"
+                        },
+                        {
+                          "field": "Microsoft.Network/virtualNetworks/subnets[*].name",
+                          "equals": "GatewaySubnet"
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            },
+            "greater": 0
+          }
+        ]
+      },
+      "then": {
+        "effect": "[parameters('effect')]"
+      }
+    }
+  }
+}

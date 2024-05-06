@@ -1,0 +1,284 @@
+// Global variables (not env vars), use for non-strings
+def backupCommentText
+def commentText
+def commentTitle
+def isAWS = params.WORKING_DIR.contains('aws') ? true : false
+def isAWSGov = params.WORKING_DIR.contains('child') ? true : false
+def isAzure = params.WORKING_DIR.contains('azure') ? true : false
+def isAzureGov = isAzure && params.WORKING_DIR.contains('gov')
+def isCrowdStrikeFalcon = params.WORKING_DIR.contains('crowdstrike_falcon') ? true : false
+def isGov = isAWSGov || isAzureGov
+def isProd = JOB_NAME.toLowerCase().contains('prod') ? true : false
+def lockFileExists
+env.REPO = 'tf_terragrunt' // Outside of pipeline because it's used by an option
+
+pipeline {
+  agent { label 'ecs-rockylinux8_openjdk17_jenkins_agent_all' }
+  parameters {
+    string(
+      name: 'PR_ID',
+      description: 'The ID of the PR where the plan will be added as a comment',
+      trim: true
+    )
+    string(
+      name: 'TERRAGRUNT_BRANCH',
+      description: 'tf_terragrunt branch',
+      trim:  true
+    )
+    string(
+      name: 'TERRAFORM_BRANCH',
+      defaultValue: 'main',
+      description: 'Terraform source branch - default value set to `main`',
+      trim: true
+    )
+    string(
+      name: 'WORKING_DIR',
+      description: '''The relative path of the working directory (aka Terragrunt module)
+        within tf_terragrunt. For example:
+        aws/comm-corp/it/oce-infraops-sandbox-01''',
+      trim: true
+    )
+  }
+  environment {
+    PARTITION = "${isGov ? 'gov' : 'comm'}"
+    REPO = 'tf_terragrunt'
+    SLACK_CHANNEL = "${isProd ? '#alerts-infrastructure-cloud' : '#testing'}"
+    TERRAGRUNT_AUTO_INIT = false
+    TF_IN_AUTOMATION = true
+    TF_INPUT = false
+    VAULT_ADDR = 'https://hcvault.parsons.us'
+    WORKING_DIR_ABSOLUTE = "${WORKSPACE}/${REPO}/${WORKING_DIR}"
+  }
+  options {
+    ansiColor('xterm')
+    buildDiscarder(logRotator(daysToKeepStr:'15'))
+    checkoutToSubdirectory(REPO)
+  }
+  stages {
+    stage('Set Build Name') {
+      steps {
+        script { currentBuild.displayName = "#${BUILD_ID} - ${WORKING_DIR}" }
+      }
+    }
+    stage('Notify Bitbucket') {
+      when { triggeredBy 'BuildUpstreamCause' } // Avoid build spam from manual testing
+      steps {
+        notifyBitbucket(
+          commitSha1: GIT_COMMIT,
+          credentialsId: 'opde_jenkins_sys_account',
+          stashServerBaseUrl: 'https://bitbucket.parsons.com'
+        )
+      }
+    }
+    stage('Setup') {
+      steps {
+        parForwardTrust()
+        retry(3) {
+          sh '''
+            go install github.com/dineshba/tf-summarize@latest
+            pip install atlassian-python-api==3.41.9
+            go version
+            terraform -v
+            terragrunt -v
+          '''
+        }
+      }
+    }
+    stage('Authenticate to Vault') {
+      options { retry(3) }
+      steps {
+        echo 'Getting a vault token'
+        withCredentials([[
+          $class: 'VaultTokenCredentialBinding',
+          credentialsId: 'hcvault-approle-team-cloud',
+          vaultAddr: VAULT_ADDR
+        ]]) {
+          script {
+            env.VAULT_TOKEN = sh(returnStdout: true, script: 'echo $VAULT_TOKEN').trim()
+          }
+        }
+      }
+    }
+    stage('Authenticate to AWS') {
+      when { expression { isAWS } }
+      steps {
+        // Always get Comm creds, both parsons.com/.us are in Comm Route 53
+        // Add named profiles to AWS creds file
+        script {
+          def partitions = [ [folder: 'comm', profile: 'oce-ss']  ]
+          if (PARTITION == 'gov') {
+            partitions.add([folder: 'gov', profile: 'pce-ss'])
+          }
+          for (p in partitions) {
+            sh """
+              set +x
+              echo Getting AWS ${p.folder} creds from vault
+              key_path=kv2_opde_it_devs/team_cloud/aws/${p.folder}/_sys_terragrunt_admin
+              id=\$(vault kv get -field=value \${key_path}/access_key_id)
+              key=\$(vault kv get -field=value \${key_path}/secret_access_key)
+              echo Creating profile ${p.profile} in credentials file
+              aws configure set profile.${p.profile}.aws_access_key_id \$id
+              aws configure set profile.${p.profile}.aws_secret_access_key \$key
+            """
+          }
+        }
+      }
+    }
+    stage('Authenticate to Azure') {
+      when { expression { isAzure } }
+      steps {
+        script {
+          echo 'Getting Azure creds from vault and setting env vars'
+          def keyPath = "kv2_opde_it_devs/team_cloud/azure/${PARTITION}/_sys_terragrunt_admin"
+          env.ARM_CLIENT_ID = sh(returnStdout: true,
+            script: "vault kv get -field=value ${keyPath}/client_id").trim()
+          env.ARM_CLIENT_SECRET = sh(returnStdout: true,
+            script: "vault kv get -field=value ${keyPath}/client_secret").trim()
+          env.ARM_TENANT_ID = sh(returnStdout: true,
+            script: "vault kv get -field=value ${keyPath}/tenant_id").trim()
+          if (isAzureGov) {
+            env.ARM_ENVIRONMENT = 'usgovernment' // Defaults to public
+          }
+        }
+      }
+    }
+    stage('Authenticate to CrowdStrike Falcon') {
+      when { expression { isCrowdStrikeFalcon } }
+      steps {
+        script {
+          echo 'Getting CrowdStrike Falcon creds from vault and setting env vars'
+          def keyPath = 'kv2_opde_it_devs/team_cloud/crowdstrike/falcon'
+          env.TF_VAR_crowdstrike_falcon_client_id = sh(returnStdout: true,
+            script: "vault kv get -field=value ${keyPath}/client_id").trim()
+          env.TF_VAR_crowdstrike_falcon_client_secret = sh(returnStdout: true,
+            script: "vault kv get -field=value ${keyPath}/client_secret").trim()
+        }
+      }
+    }
+    stage('Check lock file & init') {
+      options { retry(3) }
+      steps {
+        dir(WORKING_DIR_ABSOLUTE) {
+          script {
+            lockFileExists = fileExists('.terraform.lock.hcl')
+          }
+          sh 'terragrunt init'
+        }
+      }
+    }
+    stage('Commit lock file') {
+      when { expression { lockFileExists == false } }
+      steps {
+        dir(REPO) {
+          withCredentials([gitUsernamePassword(credentialsId: 'opde_jenkins_sys_account')]) {
+            sh '''
+              git checkout -b jenkins-temp-${TERRAGRUNT_BRANCH}
+              git add .
+              git commit -m "Add lock file for $WORKING_DIR"
+              git checkout $TERRAGRUNT_BRANCH
+              git merge jenkins-temp-${TERRAGRUNT_BRANCH}
+            '''
+            // Retry until successful, as origin may get new commits between pulling
+            // and pushing due to other builds running
+            retry(10) { sh 'git pull --rebase && git push' }
+          }
+        }
+      }
+    }
+    stage('Plan') {
+      steps {
+        dir(WORKING_DIR_ABSOLUTE) {
+          script {
+            sh 'terragrunt plan -out tfplan'
+            // Grab only the Terraform counts displayed at the end of a plan
+            // For example: 4 to add, 0 to change, 4 to destroy
+            def summaryText = sh(
+              returnStdout: true,
+              script: (
+                'terragrunt show -no-color tfplan |  grep "Plan:.*\\.$" || \
+                terragrunt show -no-color tfplan | grep "No changes.*\\." || \
+                echo ""'
+              )
+            ).trim()
+            def summaryTable = sh(
+              returnStdout: true,
+              script: """
+                if [[ "${summaryText}" != "No changes"* ]]; then
+                  terragrunt show -json tfplan | \$(go env GOPATH)/bin/tf-summarize -md
+                fi
+              """
+            ).trim()
+            def mockOutputWarning = ''
+            if (isAWSGov && fileExists("${WORKING_DIR_ABSOLUTE}/aws_account.tfvars")) {
+              // Find import.tf in the .terragrunt-cache folder to get the Gov child account ID
+              def import_gov_account_id = sh(
+                returnStdout: true,
+                script: '''
+                  cache_dir=$(terragrunt terragrunt-info | jq .WorkingDir --raw-output)
+                  cat ${cache_dir}/import.tf | grep -Po "\\d{12}"
+                '''
+              ).trim()
+              def mock_gov_account_id = sh(
+                returnStdout: true,
+                script: '''
+                  terragrunt render-json
+                  cat terragrunt_rendered.json | jq .dependency.parent.mock_outputs.govcloud_account_id --raw-output
+                '''
+              ).trim()
+              if (import_gov_account_id == mock_gov_account_id) {
+                mockOutputWarning = ('> NOTE: The parent hasn\'t been deployed yet, '
+                + 'so this plan is using a mock value for the GovCloud account ID. '
+                + 'The mock account ID is the pce-shared-services account. As a '
+                + 'result, this plan is not 100% accurate. Disregard any planned '
+                + 'changes to the account. These changes will not occur when the PR is '
+                + 'merged - the mock account ID is only used for the plan.')
+              }
+            }
+            commentTitle = "## Terraform Plan for ${WORKING_DIR}"
+            commentText = "${commentTitle}\n\n${mockOutputWarning}\n\n${summaryText}\n\n${summaryTable}"
+            commentText += "\n\n[Click here to view full plan](${RUN_DISPLAY_URL})"
+            backupCommentText = "${commentTitle}\n\n${summaryText}\n\nThe plan summary was too large to be sent to Bitbucket."
+            backupCommentText += "\n\n[Click here to view full plan](${RUN_DISPLAY_URL})"
+          }
+        }
+      }
+    }
+    stage('Send Plan to Bitbucket') {
+      environment {
+        BACKUP_TEXT = "${backupCommentText}"
+        BITBUCKET_CREDS = credentials('opde_jenkins_sys_account')
+        COMMENT_TITLE = "${commentTitle}"
+        TEXT = "${commentText}"
+      }
+      steps {
+        sh '''
+          python3 ${REPO}/jenkins/add_or_update_pr_comment.py \
+            CM $REPO $PR_ID "$COMMENT_TITLE" "$TEXT" "$BACKUP_TEXT" \
+            -u $BITBUCKET_CREDS_USR -p $BITBUCKET_CREDS_PSW
+        '''
+      }
+    }
+  }
+  post {
+    always {
+      script {
+        if (currentBuild.upstreamBuilds.size() > 0) { // Avoid build spam from manual testing
+          notifyBitbucket(
+            commitSha1: GIT_COMMIT,
+            credentialsId: 'opde_jenkins_sys_account',
+            stashServerBaseUrl: 'https://bitbucket.parsons.com'
+          )
+        }
+      }
+      script {
+        if (currentBuild.currentResult != 'SUCCESS') {
+          slackSend(
+            channel: SLACK_CHANNEL,
+            color: 'danger',
+            message: "${currentBuild.currentResult}: <${RUN_DISPLAY_URL}|${JOB_NAME} ${BUILD_DISPLAY_NAME}>",
+          )
+        }
+      }
+    }
+  }
+}

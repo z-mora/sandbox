@@ -1,0 +1,43 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "NotAction": [
+        "ec2:DisableEbsEncryptionByDefault",
+        "ec2:EnableEbsEncryptionByDefault",
+        "ec2:ModifyEbsDefaultKmsKeyId",
+        "ec2:GetEbsEncryptionByDefault",
+        "ec2:ResetEbsDefaultKmsKeyId",
+        "ssm:*",
+        "iam:*",
+        "support:*",
+        "tag:*",
+        "sts:*",
+        "s3:*",
+        "glacier:*",
+        "kms:*",
+        "cloudtrail:*",
+        "config:*",
+        "cloudwatch:*",
+        "events:*",
+        "dlm:*",
+        "cloudformation:*",
+        "codebuild:*",
+        "logs:*",
+        "guardduty:*",
+        "kinesis:*",
+        "firehose:*",
+        "sqs:*",
+        "sns:*",
+        "servicecatalog:*",
+        "states:*",
+        "xray:*",
+        "lambda:*",
+        "ce:*",
+        "trustedadvisor:*"
+      ],
+      "Resource": "*",
+      "Effect": "Deny"
+    }
+  ]
+}

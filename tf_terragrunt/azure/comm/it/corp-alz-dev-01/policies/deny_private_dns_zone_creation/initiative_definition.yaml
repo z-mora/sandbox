@@ -1,0 +1,8 @@
+name: 'deny_private_dns_zone_creation'
+display_name: Deny Private Zone Creation
+description: Deny Private Zone Creation
+policies:
+  Deny the creation of private DNS:
+    type: 'BuiltIn'
+    id: Deny-Private-DNS-Zones
+    parameters:

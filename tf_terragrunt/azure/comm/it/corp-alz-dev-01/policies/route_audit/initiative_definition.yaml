@@ -1,0 +1,10 @@
+name: 'Route Audit'
+display_name: Route Audit
+description: Route Audit
+policies:
+  RouteAudit:
+    type: 'Custom'
+    file: route_audit/route_audit.json
+    parameters: 
+      Effect: 
+        value: audit

@@ -1,0 +1,20 @@
+# Example 1 - Resource group budget
+consumption_budgets = {
+  "test_resource_group_budget" = {
+    amount              = 1000
+    end_date            = "2024-07-01T00:00:00Z"
+    notifications = {
+      "notify_hunter_greaterthan_100" = {
+        contact_emails = [
+          "hunter.hawthorne@parsons.com"
+        ]
+        enabled = false
+        operator  = "GreaterThan"
+        threshold = 100
+      }
+    }
+    resource_group_name = "rg-cps-prod-01"
+    start_date          = "2023-07-01T00:00:00Z"
+    type                = "rg"
+  }
+}

@@ -1,0 +1,78 @@
+# Assignment with an exemption Example-
+policies = {
+  "example-policy" = {
+    initiative_definition_name = "test_initiative"
+    policy_assignment = {
+      "assignment-example" = {
+         enforce         = false
+         initiative_name = "test_initiative"
+         scope           = "rg"
+         scope_id        = "/subscriptions/d5fb8c13-907c-4c33-8021-d5457490856b/resourceGroups/rg-cps-prod-01"
+      }
+    }
+    policy_exemptions = {
+       "exemption-example" = {
+         assignment_name = "assignment-example"
+         category        = "Mitigated"
+         scope           = "rg"
+         scope_id        = "/subscriptions/d5fb8c13-907c-4c33-8021-d5457490856b/resourceGroups/rg-cps-prod-01"
+       }
+     }
+  }
+}
+
+# Initiative with custom and built-in definition
+# this would be located in /policies/test_initiative within the terragrunt implementation
+# This initiative has 2 definitions
+# -(Custom) Blocked locations - blocks login from specific regions
+# -(Built-In) SQL Server Integration - Note the id is needed for a built in policy, this is pulled from Azure
+name: 'test_initiative'
+display_name: test initiative
+description: test initiative
+policies:
+  BlockedLocations:
+    type: 'Custom'
+    file: test_initiative/blocked_locations.json
+    management_group_id: mg-infra-prod-01
+    parameters:
+      listOfBlockedLocations:
+        value:
+          - australiaeast
+  SQL Server Integration Services integration runtimes on Azure Data Factory should be joined to a virtual network:
+    type: 'BuiltIn'
+    id: 0088bc63-6dee-4a9c-9d29-91cfdc848952
+    parameters:
+
+# Custom definition
+# This definition would be in the same folder as the above Initiative Definition
+{
+  "properties": {
+    "displayName": "Blocked locations",
+    "policyType": "Custom",
+    "mode": "All",
+    "description": "This policy enables you to restrict the locations your organization can't specify when deploying resources. Use to enforce your geo-compliance requirements. Excludes resource groups, Microsoft.AzureActiveDirectory/b2cDirectories, and resources that use the 'global' region.",
+    "metadata": {
+      "version": "1.0.0",
+      "category": "General"
+    },
+    "parameters": {
+      "listOfBlockedLocations": {
+        "type": "Array",
+        "metadata": {
+          "description": "The list of locations that can't be specified when deploying resources.",
+          "strongType": "location",
+          "displayName": "Blocked locations"
+        }
+      }
+    },
+    "policyRule": {
+      "if": {
+        "field": "location",
+        "in": "[parameters('listOfBlockedLocations')]"
+      },
+      "then": {
+        "effect": "audit"
+      }
+    }
+  }
+}

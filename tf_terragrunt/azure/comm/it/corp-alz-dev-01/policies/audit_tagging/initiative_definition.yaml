@@ -1,0 +1,46 @@
+name: 'Tagging Initiative'
+display_name: Tagging Initiative
+description: Tagging Initiative
+policies:
+  AppTag:
+    type: 'Custom'
+    file: audit_tagging/audit_AppTag.json
+    # management_group_id: mg-infra-prod-01
+    parameters:
+      tagName:
+        value: App
+  EnvironmentTag:
+    type: 'Custom'
+    file: audit_tagging/audit_Environment.json
+    # management_group_id: mg-infra-prod-01
+    parameters:
+      tagName:
+        value: Environment
+  GBUTag:
+    type: 'Custom'
+    file: audit_tagging/audit_GBU.json
+    # management_group_id: mg-infra-prod-01
+    parameters:
+      tagName:
+        value: GBU
+  ITSMTag:
+    type: 'Custom'
+    file: audit_tagging/audit_ITSM.json
+    # management_group_id: mg-infra-prod-01
+    parameters:
+      tagName:
+        value: ITSM
+  JobWbsTag:
+    type: 'Custom'
+    file: audit_tagging/audit_JobWbs.json
+    # management_group_id: mg-infra-prod-01
+    parameters:
+      tagName:
+        value: JobWbs
+  OwnerTag:
+    type: 'Custom'
+    file: audit_tagging/audit_Owner.json
+    # management_group_id: mg-infra-prod-01
+    parameters:
+      tagName:
+        value: Owner
