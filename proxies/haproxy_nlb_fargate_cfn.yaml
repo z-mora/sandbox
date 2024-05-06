@@ -1,0 +1,656 @@
+---
+# Template reference - templates/apps/haproxy_nlb_fargate_cfn.yaml
+AWSTemplateFormatVersion: 2010-09-09
+Description: >-
+  This template provisions an ECS Fargate HAProxy Task with Auto Scaling.
+  This includes a TCP NLB with 2 listener ports, 2 target groups, 1 target service.
+Metadata:
+      AWS::CloudFormation::Interface:
+        ParameterGroups:
+          - Label:
+              default: Network Parameters
+            Parameters:
+            - VPC
+            - SubnetA
+            - SubnetB
+          - Label:
+              default: Application/Container Parameters
+            Parameters:
+            - ServiceName
+            - ContainerPort1
+            - ContainerPort2
+            - ContainerCpu
+            - ContainerMem
+            - Image
+            - ImageRepoUsername
+            - ImageRepoPassword
+            - B64HAProxyConfig
+          - Label:
+              default: Cluster Parameters
+            Parameters:
+            - MinContainers
+            - MaxContainers
+            - AutoScalingTargetValue
+          - Label:
+              default: Load Balancer Parameters
+            Parameters:
+            - LoadBalancerPort1
+            - LoadBalancerPort2
+            - TargetGroupHealthCheckPort1
+            - TargetGroupHealthCheckPort2
+          - Label:
+              default: KMS Key Configuration
+            Parameters:
+            - KMSKeyDescription
+            - KMSKeyAliasName
+          - Label:
+              default: Tags
+            Parameters:
+            - NameTag
+            - JobWbsTag
+            - AppTag
+            - GBUTag
+            - EnvironmentTag
+            - ITSMTag
+            - OwnerTag
+            - DomainTag
+        ParameterLabels:
+          # Network Labels
+          VPC:
+            default: VPC
+          SubnetA:
+            default: Private subnet A
+          SubnetB:
+            default: Private subnet B
+          # App/Task Labels
+          ServiceName:
+            default: Service Name
+          ContainerPort1:
+            default: Container Port 1
+          ContainerPort2:
+            default: Container Port 2
+          ContainerCPU:
+            default: Container CPU
+          ContainerMem:
+            default: Container Memory
+          Image:
+            default: Image URL
+          ImageRepoUsername:
+            default: Private Repo Username
+          ImageRepoPassword:
+            default: Private Repo Password
+          Certificate:
+            default: Certificate ARN
+          B64HAProxyConfig:
+            default: Base64 Encoded HAProxy Config File
+          MinContainers:
+            default: Minimum Containers for Autoscaling
+          MaxContainers:
+            default: Maximum Containers for Autoscaling
+          AutoScalingTargetValue:
+            default: Target CPU Utilization (%)
+          # Load Balancer Labels
+          LoadBalancerPort1:
+            default: Listener Port 1
+          LoadBalancerPort2:
+            default: Listener Port 2
+          TargetGroupHealthCheckPort1:
+            default: Target Group Health Check Port 1
+          TargetGroupHealthCheckPort2:
+            default: Target Group Health Check Port 2
+          # KMS Key Labels
+          KMSKeyDescription:
+            default: KMS Key Description
+          KMSKeyAliasName:
+            default: KMS Key Alias
+          # Tag Labels
+          NameTag:
+            default: Name Tag
+          JobWbsTag:
+            default: Job/Wbs Tag
+          AppTag:
+            default: App Tag
+          DomainTag:
+            default: Domain Tag
+          GBUTag:
+            default: GBU Tag
+          EnvironmentTag:
+            default: Environment Tag
+          ITSMTag:
+            default: ITSM Tag
+          OwnerTag:
+            default: Owner Tag
+
+Parameters:
+  VPC:
+    Type: AWS::EC2::VPC::Id
+  SubnetA:
+    Type: AWS::EC2::Subnet::Id
+  SubnetB:
+    Type: AWS::EC2::Subnet::Id
+  ServiceName:
+    Type: String
+    AllowedPattern: "^[a-zA-Z0-9:_-]+$"
+    ConstraintDescription: "alphanumeric,:,_,- are allowed."
+    Default: Service
+    Description: Limit Service Name to 16 characters
+  ContainerPort1:
+    Type: Number
+    Default: 80
+  ContainerPort2:
+    Type: Number
+    Default: 443
+  ContainerCpu:
+    Type: Number
+    Default: 256
+    Description: >-
+      256 (.25 vCPU) - Available memory values: 0.5GB, 1GB, 2GB | 
+      512 (.5 vCPU) - Available memory values: 1GB, 2GB, 3GB, 4GB | 
+      1024 (1 vCPU) - Available memory values: 2GB, 3GB, 4GB, 5GB, 6GB, 7GB, 8GB | 
+      2048 (2 vCPU) - Available memory values: Between 4GB and 16GB in 1GB increments | 
+      4096 (4 vCPU) - Available memory values: Between 8GB and 30GB in 1GB increments | 
+    AllowedValues: ["256", "512", "1024", "2048", "4096"]
+  ContainerMem:
+    Type: String
+    Default: 0.5GB
+    Description: >-
+      0.5GB, 1GB, 2GB - Available cpu values: 256 (.25 vCPU) | 
+      1GB, 2GB, 3GB, 4GB - Available cpu values: 512 (.5 vCPU) | 
+      2GB, 3GB, 4GB, 5GB, 6GB, 7GB, 8GB - Available cpu values: 1024 (1 vCPU) | 
+      Between 4GB and 16GB in 1GB increments - Available cpu values: 2048 (2 vCPU) | 
+      Between 8GB and 30GB in 1GB increments - Available cpu values: 4096 (4 vCPU) | 
+  Image:
+    Type: String
+    Default: docker.polarisalpha.com/haproxy:latest
+    Description: Update with the Docker image. "You can use images in the Docker Hub registry or specify other repositories (repository-url/image:tag)."
+  ImageRepoUsername:
+    Type: String
+    Default: first.last@polarisalpha.com
+  ImageRepoPassword:
+    Type: String
+    NoEcho: true
+  KMSKeyDescription:
+    Type: String
+    MinLength: 0
+    MaxLength: 8192
+    Default: "haproxy-parsons-com"
+    Description: KMS Key Description
+  KMSKeyAliasName:
+    Type: String
+    MinLength: 1
+    MaxLength: 250
+    AllowedPattern: "^[a-zA-Z0-9:_-]+$"
+    ConstraintDescription: "alphanumeric,:,_,- are allowed."
+    Default: "haproxy-key"
+    Description: KMS Key Alias - do not include alias/, it is included for you
+  B64HAProxyConfig:
+    Type: String
+    Default: "ZnJvbnRlbmQgY2Z0cmVwX3Byb2RfZnJvbnRfZW5kCiAgICAjIE9ubHkgYmluZCBvbiA4MCBpZiB5b3UgYWxzbyB3YW50IHRvIGxpc3RlbiBmb3IgY29ubmVjdGlvbnMgb24gODAKICAgIGJpbmQgKjo4MAogICAgYmluZCAqOjQ0MwogICAgb3B0aW9uIHRjcGxvZwogICAgbW9kZSB0Y3AKICAgIGRlZmF1bHRfYmFja2VuZCBjZnRyZXBfcHJvZF9iYWNrX2VuZAoKYmFja2VuZCBjZnRyZXBfcHJvZF9iYWNrX2VuZAogICAgbW9kZSB0Y3AKICAgIGJhbGFuY2Ugcm91bmRyb2JpbgogICAgb3B0aW9uIHNzbC1oZWxsby1jaGsKICAgICMgQWRkIGFuIGVudHJ5IGZvciBlYWNoIG9mIHlvdXIgYmFja2VuZCBzZXJ2ZXJzIGFuZCB0aGVpciByZXNvbHZhYmxlIGhvc3RuYW1lcwogICAgc2VydmVyIDEwLjQ1LjUzLjE3Nzo0NDMgY2hlY2sKICAgIHNlcnZlciAxMC40NS41Mi4xMTk6NDQzIGNoZWNr"
+    Description: Base 64 HAProxy Configuration File ($ cat haproxy.cfg | openssl base64)
+  LoadBalancerPort1:
+    Type: Number
+    Default: 80
+  LoadBalancerPort2:
+    Type: Number
+    Default: 443
+  TargetGroupHealthCheckPort1:
+    Type: Number
+    Default: 80
+  TargetGroupHealthCheckPort2:
+    Type: Number
+    Default: 443
+  # for autoscaling
+  MinContainers:
+    Type: Number
+    Default: 2
+  # for autoscaling
+  MaxContainers:
+    Type: Number
+    Default: 10
+  # target CPU utilization (%)
+  AutoScalingTargetValue:
+    Type: Number
+    Default: 50
+  # Tags
+  NameTag:
+    Type: String
+    Default: "VANVA01ECSHAPROXY01"
+    Description: "The name of the container resource"
+  AppTag:
+    Type: String
+    Default: "HAProxy"
+    Description: "The name of primary application the container will support. Must be valid Application name from Application portfolio"
+  DomainTag:
+    Type: String
+    Default: "parsons.com"
+    AllowedValues: ["parsons.com", "sandbox.parsons.com", "parsonsext.com", "parsonstst.com"]
+    Description: "What domain the server belongs to"
+  GBUTag:
+    Type: String
+    Default: "COR"
+    AllowedValues: ["COR", "FED", "MEA", "INF"]
+    Description: "The GBU of Job/Wbs # that will be charge for this resource"
+  EnvironmentTag:
+    Type: String
+    Default: "PROD"
+    AllowedValues: ["PROD", "MANAGEMENT", "SANDBOX", "TEST", "DEV", "QA", "DR"]
+    Description: "The environment this resource resides in"
+  ITSMTag:
+    Type: String
+    Default: "SERVER"
+    AllowedValues: ["SERVER", "SERVERLESS", "STORAGE", "NETWORK", "BACKUP", "MANAGEMENT", "DATABASE"]
+    Description: "The name of ITSM service that this resource will be aligned to"
+  JobWbsTag:
+    Type: String
+    Default: "897720-01101"
+    # "123456-12345"
+    AllowedPattern: "[0-9][0-9][0-9][0-9][0-9][0-9].[0-9][0-9][0-9][0-9][0-9]"
+    Description: "Valid job/wbs (xxxxxx-xxxxx)"
+  OwnerTag:
+    Type: String
+    Default: first.last@parsons.com
+    AllowedPattern: "^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\\.[a-zA-Z0-9-.]+$"
+    Description: "POC email address (individual or distrabution list)"
+
+Resources:
+  RepoSecrets:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Sub 'haproxy-repo-secret'
+      Description: "Secrets for HAProxy Container Repo Access"
+      SecretString: !Sub '{ "username": "${ImageRepoUsername}", "password": "${ImageRepoPassword}" }'
+      KmsKeyId: !GetAtt KMSKey.Arn
+      Tags:
+      - Key: "App"
+        Value: !Ref AppTag
+      - Key: "Domain"
+        Value: !Ref DomainTag
+      - Key: "Environment"
+        Value: !Ref EnvironmentTag
+      - Key: "GBU"
+        Value: !Ref GBUTag
+      - Key: "ITSM"
+        Value: !Ref ITSMTag
+      - Key: "Job/Wbs"
+        Value: !Ref JobWbsTag
+      - Key: "Owner"
+        Value: !Ref OwnerTag
+  KMSKey:
+    Type: AWS::KMS::Key
+    Properties:
+      Description: !Ref KMSKeyDescription
+      KeyPolicy:
+        Version: "2012-10-17"
+        Id: "key-policy-1"
+        Statement:
+          -
+            Sid: "Enable IAM User Permissions"
+            Effect: "Allow"
+            Principal:
+              AWS: !Sub "arn:aws:iam::${AWS::AccountId}:root"
+            Action:
+              - "kms:*"
+            Resource: "*"
+      Tags:
+      - Key: "App"
+        Value: !Ref AppTag
+      - Key: "Domain"
+        Value: !Ref DomainTag
+      - Key: "Environment"
+        Value: !Ref EnvironmentTag
+      - Key: "GBU"
+        Value: !Ref GBUTag
+      - Key: "ITSM"
+        Value: !Ref ITSMTag
+      - Key: "Job/Wbs"
+        Value: !Ref JobWbsTag
+      - Key: "Owner"
+        Value: !Ref OwnerTag
+      Enabled: true
+      EnableKeyRotation: true
+  KMSKeyAlias:
+    Type: AWS::KMS::Alias
+    Properties:
+      AliasName: !Sub "alias/${KMSKeyAliasName}"
+      TargetKeyId:
+        Ref: KMSKey
+  Cluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: !Join ['', [!Ref ServiceName, Cluster]]
+      Tags:
+      - Key: "App"
+        Value: !Ref AppTag
+      - Key: "Domain"
+        Value: !Ref DomainTag
+      - Key: "Environment"
+        Value: !Ref EnvironmentTag
+      - Key: "GBU"
+        Value: !Ref GBUTag
+      - Key: "ITSM"
+        Value: !Ref ITSMTag
+      - Key: "Job/Wbs"
+        Value: !Ref JobWbsTag
+      - Key: "Owner"
+        Value: !Ref OwnerTag
+  TaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    # Makes sure the log group is created before it is used.
+    DependsOn: LogGroup
+    Properties:
+      # Name of the task definition. Subsequent versions of the task definition are grouped together under this name.
+      Family: !Join ['', [!Ref ServiceName, TaskDefinition]]
+      # awsvpc is required for Fargate
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - FARGATE
+      Cpu: !Ref ContainerCpu
+      Memory: !Ref ContainerMem
+      Volumes:
+        - Name: haproxy-conf-vol
+          Host: {}
+      # A role needed by ECS.
+      # "The ARN of the task execution role that containers in this task can assume. All containers in this task are granted the permissions that are specified in this role."
+      # "There is an optional task execution IAM role that you can specify with Fargate to allow your Fargate tasks to make API calls to Amazon ECR."
+      ExecutionRoleArn: !Ref ExecutionRole
+      # "The Amazon Resource Name (ARN) of an AWS Identity and Access Management (IAM) role that grants containers in the task permission to call AWS APIs on your behalf."
+      TaskRoleArn: !Ref TaskRole
+      ContainerDefinitions:
+        - Name: !Ref ServiceName
+          Image: !Ref Image
+          Essential: true
+          DependsOn:
+            - Condition: COMPLETE
+              ContainerName: haproxy-config
+          #Environment:
+          #- Name: PROXY_URL
+          #  Value: !Join ['', ['https://', !Ref DNSRecord]]
+          PortMappings:
+            - ContainerPort: !Ref ContainerPort1
+              hostPort: !Ref ContainerPort1
+              protocol: tcp
+            - ContainerPort: !Ref ContainerPort2
+              hostPort: !Ref ContainerPort2
+              protocol: tcp
+          MountPoints:
+            - ContainerPath: /usr/local/etc/haproxy
+              SourceVolume: haproxy-conf-vol
+          # Private Repo Credentials
+          RepositoryCredentials:
+            CredentialsParameter: !Ref RepoSecrets
+          # Send logs to CloudWatch Logs
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-region: !Ref AWS::Region
+              awslogs-group: !Ref LogGroup
+              awslogs-stream-prefix: ecs
+        - Name: haproxy-config
+          Image: docker.polarisalpha.com/bash:latest
+          Essential: false
+          Command:
+            - -c
+            - echo $DATA1 | base64 -d - | tee /usr/local/etc/haproxy/haproxy.cfg
+          Environment:
+            - Name: DATA1
+              Value: !Ref B64HAProxyConfig
+          MountPoints:
+            - ContainerPath: /usr/local/etc/haproxy
+              SourceVolume: haproxy-conf-vol
+          RepositoryCredentials:
+            CredentialsParameter: !Ref RepoSecrets
+      Tags:
+      - Key: "App"
+        Value: !Ref AppTag
+      - Key: "Domain"
+        Value: !Ref DomainTag
+      - Key: "Environment"
+        Value: !Ref EnvironmentTag
+      - Key: "GBU"
+        Value: !Ref GBUTag
+      - Key: "ITSM"
+        Value: !Ref ITSMTag
+      - Key: "Job/Wbs"
+        Value: !Ref JobWbsTag
+      - Key: "Owner"
+        Value: !Ref OwnerTag
+  # A role needed by ECS
+  ExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Join ['', [!Ref ServiceName, ExecutionRole]]
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy'
+        # - 'arn:aws:iam::aws:policy/SecretsManagerReadWrite'
+      Policies:
+        - PolicyName: !Join ['', [!Ref ServiceName, ExecRoleSMPolicy]]
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "secretsmanager:GetResourcePolicy"
+                  - "secretsmanager:GetSecretValue"
+                  - "secretsmanager:DescribeSecret"
+                  - "secretsmanager:ListSecretVersionIds"
+                  - "kms:Decrypt"
+                Resource:
+                  - !Ref RepoSecrets
+                  - !GetAtt KMSKey.Arn
+  # A role for the containers
+  TaskRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Join ['', [!Ref ServiceName, TaskRole]]
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: 'sts:AssumeRole'
+      # ManagedPolicyArns:
+      #   -
+      Policies:
+        - PolicyName: !Join ['', [!Ref ServiceName, TaskLogPolicy]]
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "logs:CreateLogStream"
+                  - "logs:GetLogEvents"
+                  - "logs:PutLogEvents"
+                Resource:
+                  - arn:aws:logs:*:*:log-group:*
+                  - arn:aws:logs:*:*:log-group:*:log-stream:*
+  # A role needed for auto scaling
+  AutoScalingRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Join ['', [!Ref ServiceName, AutoScalingRole]]
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceAutoscaleRole'
+  ContainerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: !Join ['', [!Ref ServiceName, ContainerSecurityGroup]]
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: !Ref ContainerPort1
+          ToPort: !Ref ContainerPort1
+          CidrIp: 10.0.0.0/8
+        - IpProtocol: tcp
+          FromPort: !Ref ContainerPort1
+          ToPort: !Ref ContainerPort1
+          CidrIp: 172.16.0.0/12
+        - IpProtocol: tcp
+          FromPort: !Ref ContainerPort1
+          ToPort: !Ref ContainerPort1
+          CidrIp: 192.168.0.0/16
+        - IpProtocol: tcp
+          FromPort: !Ref ContainerPort1
+          ToPort: !Ref ContainerPort1
+          CidrIp: 206.219.192.0/18
+        - IpProtocol: tcp
+          FromPort: !Ref ContainerPort2
+          ToPort: !Ref ContainerPort2
+          CidrIp: 10.0.0.0/8
+        - IpProtocol: tcp
+          FromPort: !Ref ContainerPort2
+          ToPort: !Ref ContainerPort2
+          CidrIp: 172.16.0.0/12
+        - IpProtocol: tcp
+          FromPort: !Ref ContainerPort2
+          ToPort: !Ref ContainerPort2
+          CidrIp: 192.168.0.0/16
+        - IpProtocol: tcp
+          FromPort: !Ref ContainerPort2
+          ToPort: !Ref ContainerPort2
+          CidrIp: 206.219.192.0/18
+  Service:
+    Type: AWS::ECS::Service
+    # This dependency is needed so that the load balancer is setup correctly in time
+    DependsOn:
+      - Listener1
+      - Listener2
+    Properties:
+      ServiceName: !Ref ServiceName
+      Cluster: !Ref Cluster
+      TaskDefinition: !Ref TaskDefinition
+      DeploymentConfiguration:
+        MinimumHealthyPercent: 75
+        MaximumPercent: 200
+      DesiredCount: 2
+      # This may need to be adjusted if the container takes a while to start up
+      HealthCheckGracePeriodSeconds: 30
+      LaunchType: FARGATE
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          # change to ENABLED if you're using public subnets that doesn't have to access a NAT gateway
+          AssignPublicIp: DISABLED
+          Subnets:
+            - !Ref SubnetA
+            - !Ref SubnetB
+          SecurityGroups:
+            - !Ref ContainerSecurityGroup
+      LoadBalancers:
+        - ContainerName: !Ref ServiceName
+          ContainerPort: !Ref ContainerPort1
+          TargetGroupArn: !Ref TargetGroup1
+        - ContainerName: !Ref ServiceName
+          ContainerPort: !Ref ContainerPort2
+          TargetGroupArn: !Ref TargetGroup2
+      Tags:
+      - Key: "App"
+        Value: !Ref AppTag
+      - Key: "Domain"
+        Value: !Ref DomainTag
+      - Key: "Environment"
+        Value: !Ref EnvironmentTag
+      - Key: "GBU"
+        Value: !Ref GBUTag
+      - Key: "ITSM"
+        Value: !Ref ITSMTag
+      - Key: "Job/Wbs"
+        Value: !Ref JobWbsTag
+      - Key: "Owner"
+        Value: !Ref OwnerTag
+  TargetGroup1:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      HealthCheckIntervalSeconds: 10
+      # will look for a 200 status code by default unless specified otherwise
+      HealthCheckPort: !Ref TargetGroupHealthCheckPort1
+      Name: !Join ['', [!Ref ServiceName, TargetGroup1]]
+      Port: !Ref ContainerPort1
+      Protocol: TCP
+      TargetGroupAttributes:
+        - Key: deregistration_delay.timeout_seconds
+          Value: 100 # default is 300
+      TargetType: ip
+      VpcId: !Ref VPC
+  TargetGroup2:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      HealthCheckIntervalSeconds: 10
+      # will look for a 200 status code by default unless specified otherwise
+      HealthCheckPort: !Ref TargetGroupHealthCheckPort2
+      Name: !Join ['', [!Ref ServiceName, TargetGroup2]]
+      Port: !Ref ContainerPort2
+      Protocol: TCP
+      TargetGroupAttributes:
+        - Key: deregistration_delay.timeout_seconds
+          Value: 100 # default is 300
+      TargetType: ip
+      VpcId: !Ref VPC
+  Listener1:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - TargetGroupArn: !Ref TargetGroup1
+          Type: forward
+      LoadBalancerArn: !Ref LoadBalancer
+      Port: !Ref LoadBalancerPort1
+      Protocol: TCP
+  Listener2:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - TargetGroupArn: !Ref TargetGroup2
+          Type: forward
+      LoadBalancerArn: !Ref LoadBalancer
+      Port: !Ref LoadBalancerPort2
+      Protocol: TCP
+  LoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: !Join ['', [!Ref ServiceName, LoadBalancer]]
+      Type: network
+      LoadBalancerAttributes:
+        - Key: load_balancing.cross_zone.enabled
+          Value: true
+      # "internet-facing" is also an option
+      Scheme: internal
+      Subnets:
+        - !Ref SubnetA
+        - !Ref SubnetB
+  LogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Join ['', [/ecs/, !Ref ServiceName, TaskDefinition]]
+  AutoScalingTarget:
+    Type: AWS::ApplicationAutoScaling::ScalableTarget
+    Properties:
+      MinCapacity: !Ref MinContainers
+      MaxCapacity: !Ref MaxContainers
+      ResourceId: !Join ['/', [service, !Ref Cluster, !GetAtt Service.Name]]
+      ScalableDimension: ecs:service:DesiredCount
+      ServiceNamespace: ecs
+      # "The Amazon Resource Name (ARN) of an AWS Identity and Access Management (IAM) role that allows Application Auto Scaling to modify your scalable target."
+      RoleARN: !GetAtt AutoScalingRole.Arn
+  AutoScalingPolicy:
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+    Properties:
+      PolicyName: !Join ['', [!Ref ServiceName, AutoScalingPolicy]]
+      PolicyType: TargetTrackingScaling
+      ScalingTargetId: !Ref AutoScalingTarget
+      TargetTrackingScalingPolicyConfiguration:
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ECSServiceAverageCPUUtilization
+        ScaleInCooldown: 10
+        ScaleOutCooldown: 10
+        # Keep things at or lower than 50% CPU utilization, for example
+        TargetValue: !Ref AutoScalingTargetValue

@@ -1,0 +1,12 @@
+---
+template: ssm_base_services_cfn.yaml
+stacks:
+  oce-corp-ssm-services-sb12:
+    cli:
+      stack-name: oce-corp-ssm-services-sb12
+      profile: oce-sb12
+      region: us-east-1
+      capabilities: CAPABILITY_IAM
+    parameters:
+      MaintenanceRunCommandS3Bucket: sb12-ssm-maintenance-logs
+

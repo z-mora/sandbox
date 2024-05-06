@@ -1,0 +1,673 @@
+---
+    # Template reference - templates/apps/ninx_lb_fargate_cfn.yaml
+    AWSTemplateFormatVersion: 2010-09-09
+    Description: FarGate Deployment template for Sticky NGINX - For Production
+
+    Metadata:
+      AWS::CloudFormation::Interface:
+        ParameterGroups:
+          - Label:
+              default: NGINX Application/Container
+            Parameters:
+            - NGINXLoadBalancerListenerImportStackName
+            - NGINXServiceName
+            - NGINXImageURL
+            - NGINXContainerPort
+            - NGINXContainerCpu
+            - NGINXContainerMemory
+            - NGINXDesiredCount
+            - NGINXPriority
+            - NGINXContainerRepoUsername
+            - NGINXContainerRepoPassword
+            - NGINXEnvAccessToken
+            - NGINXEnvConsoleSecret
+            - NGINXAppConfigFile
+            - NGINXMainConfigFile
+            - B64NGINXConfig
+          - Label:
+              default: KMS Key Configuration
+            Parameters:
+            - KMSKeyDescription
+            - KMSKeyAliasName
+          - Label:
+              default: S3 Configuration
+            Parameters:
+            - NGINXS3BucketPrefix
+          - Label:
+              default: Network Parameters
+            Parameters:
+            - VPC
+            - PrivateSubnet1
+            - PrivateSubnet2
+            - DNSRecord
+          - Label:
+              default: Tags
+            Parameters:
+            - NameTag
+            - JobWbsTag
+            - AppTag
+            - GBUTag
+            - EnvironmentTag
+            - ITSMTag
+            - OwnerTag
+            - DomainTag
+        ParameterLabels:
+          NGINXLoadBalancerListenerImportStackName:
+            default: NGINX Stack Name
+          NGINXServiceName:
+            default: Service Name
+          NGINXImageURL:
+            default: IMAGE URL
+          NGINXContainerPort:
+            default: Container Port
+          NGINXContainerCpu:
+            default: CPU Units
+          NGINXContainerMemory:
+            default: Memory
+          NGINXDesiredCount:
+            default: Number of images to run
+          NGINXPriority:
+            default: ALB Listener Rule Priority
+          NGINXContainerRepoUsername:
+            default: Repo Username
+          NGINXContainerRepoPassword:
+            default: Repo Password
+          NGINXEnvAccessToken:
+            default: Access Token
+          NGINXEnvConsoleSecret:
+            default: Console Secret
+          NGINXAppConfigFile:
+            default: App Conf FileName
+          NGINXMainConfigFile:
+            default: Main Conf FileName
+          B64NGINXConfig:
+            default: B64 Conf File
+          # KMS Key Labels
+          KMSKeyDescription:
+            default: KMS Key Description
+          KMSKeyAliasName:
+            default: KMS Key Alias
+          # S3 Bucket Labels
+          NGINXS3BucketPrefix:
+            default: S3 Bucket and Prefix
+          # Network Labels
+          VPC:
+            default: VPC
+          PrivateSubnet:
+            default: Private subnet
+          DNSRecord:
+            default: DNS record for Task app
+          # Tag Labels
+          NameTag:
+            default: Name Tag
+          JobWbsTag:
+            default: Job/Wbs Tag
+          AppTag:
+            default: App Tag
+          GBUTag:
+            default: GBU Tag
+          EnvironmentTag:
+            default: Environment Tag
+          ITSMTag:
+            default: ITSM Tag
+          OwnerTag:
+            default: Owner Tag
+          DomainTag:
+            default: Domain Tag
+
+    Parameters:
+      NGINXLoadBalancerListenerImportStackName:
+        Type: String
+        Default: STACKNAME
+        Description: Stack Name where the ALB Listener was created
+      NGINXServiceName:
+        Type: String
+        Default: NGINX
+        Description: NGINX service name
+      NGINXImageURL:
+        Type: String
+        Default: "https://docker.polarisalpha.com/nginx:latest"
+        Description: NGINX image URL
+      NGINXContainerPort:
+        Type: Number
+        Default: 80
+        Description: The container port
+      NGINXContainerCpu:
+        Type: Number
+        Default: 256
+        Description: Required CPU
+      NGINXContainerMemory:
+        Type: Number
+        Default: 512
+        Description: Required memory
+      NGINXDesiredCount:
+        Type: Number
+        Default: 2
+        Description: Desired amount of services
+      NGINXPriority:
+        Type: Number
+        Default: 30
+        Description: The priority for the routing rule added to the load balancer
+      NGINXContainerRepoUsername:
+        Type: String
+        Description: Username of container registry
+      NGINXContainerRepoPassword:
+        Type: String
+        Description: Password of container registry
+        NoEcho: true
+      NGINXEnvAccessToken:
+        Type: String
+        Description: Access Token
+        NoEcho: true
+      NGINXEnvConsoleSecret:
+        Type: String
+        Description: Console Secret
+        NoEcho: true
+      NGINXAppConfigFile:
+        Type: String
+        Default: "default-app.conf"
+        Description: App Configuration File Name
+      NGINXMainConfigFile:
+        Type: String
+        Default: "default-nginx.conf"
+        Description: Main Configuration File Name
+      B64NGINXConfig:
+        Type: String
+        Default: "aHR0cCB7CiMgUG9ydCA4MAp1cHN0cmVhbSBjZnRyZXBfcHJvZF9iYWNrX2VuZF9wb3J0XzgwIHsKaGFzaCAkcmVtb3RlX2FkZHI7CiAgICBzZXJ2ZXIgMTAuNDUuNTMuMTc3OjgwIG1heF9mYWlscz0zIGZhaWxfdGltZW91dD0zMHM7CiAgICBzZXJ2ZXIgMTAuNDUuNTIuMTE5OjgwIG1heF9mYWlscz0zIGZhaWxfdGltZW91dD0zMHM7CiAgICB9CnNlcnZlciB7CiAgICBsaXN0ZW4gODA7CiAgICBwcm94eV9wYXNzIGNmdHJlcF9wcm9kX2JhY2tfZW5kX3BvcnRfODA7CiAgICB9CiMgUG9ydCA0NDMKdXBzdHJlYW0gY2Z0cmVwX3Byb2RfYmFja19lbmRfcG9ydF80NDMgewpoYXNoICRyZW1vdGVfYWRkcjsKICAgIHNlcnZlciAxMC40NS41My4xNzc6NDQzIG1heF9mYWlscz0zIGZhaWxfdGltZW91dD0zMHM7CiAgICBzZXJ2ZXIgMTAuNDUuNTIuMTE5OjQ0MyBtYXhfZmFpbHM9MyBmYWlsX3RpbWVvdXQ9MzBzOwogICAgfQpzZXJ2ZXIgewogICAgbGlzdGVuIDQ0MzsKICAgIHByb3h5X3Bhc3MgY2Z0cmVwX3Byb2RfYmFja19lbmRfcG9ydF80NDM7CiAgICB9CnNlcnZlciB7CiAgICBsb2NhdGlvbiAvaGVhbHRoIHsKICAgICAgICBhY2Nlc3NfbG9nIG9mZjsKICAgICAgICByZXR1cm4gMjAwICdIZWFsdGh5ISc7CiAgICAgICAgYWRkX2hlYWRlciBDb250ZW50LVR5cGUgdGV4dC9wbGFpbjsKICAgICAgICB9CiAgICB9Cn0="
+        Description: Base 64 NGINX Configuration File ($ cat nginx.conf | openssl base64)
+      # KMS Key Parameters
+      KMSKeyDescription:
+        Type: String
+        MinLength: 0
+        MaxLength: 8192
+        Default: "nginx-parsons-com"
+        Description: KMS Key Description
+      KMSKeyAliasName:
+        Type: String
+        MinLength: 1
+        MaxLength: 250
+        AllowedPattern: "^[a-zA-Z0-9:_-]+$"
+        ConstraintDescription: "alphanumeric,:,_,- are allowed."
+        Default: "nginx-key"
+        Description: KMS Key Alias - do not include alias/, it is included for you
+      # S3 Bucket Parameters
+      NGINXS3BucketPrefix:
+        Type: String
+        Default: parsons-iac-aws/templates/ProxyConfigs
+        AllowedPattern: "[-_ a-zA-Z0-9/]*"
+        MinLength: "5"
+        MaxLength: "50"
+        Description: S3 Bucket Name and path where Proxy configuration files are located
+      # Network Parameters
+      VPC:
+        Description: VPC for deploying container
+        Type: AWS::EC2::VPC::Id
+      PrivateSubnet1:
+        Description:  Subnet 1 to deploy resources into.  In Palo Alto controlled DMZ, so Private in AWS.
+        Type: AWS::EC2::Subnet::Id
+      PrivateSubnet2:
+        Description:  Subnet 2 to deploy resources into.  In Palo Alto controlled DMZ, so Private in AWS.
+        Type: AWS::EC2::Subnet::Id
+      DNSRecord:
+        Type: String
+        Default: nginx.parsons.com
+        Description: DNS Record for App
+      # Tag Parameters
+      NameTag:
+        Type: String
+        Default: "VANVA01ECSNGINX01"
+        Description: "The name of the container resource"
+      AppTag:
+        Type: String
+        Default: "NGINX"
+        Description: "The name of primary application the container will support. Must be valid Application name from Application portfolio"
+      GBUTag:
+        Type: String
+        Default: "COR"
+        AllowedValues: ["COR", "FED", "MEA", "INF"]
+        Description: "The GBU of Job/Wbs # that will be charge for this resource"
+      EnvironmentTag:
+        Type: String
+        Default: "PROD"
+        AllowedValues: ["PROD", "MANAGEMENT", "TEST", "DEV", "QA", "DR"]
+        Description: "The environment this resource resides in"
+      ITSMTag:
+        Type: String
+        Default: "SERVER"
+        AllowedValues: ["SERVER", "STORAGE", "NETWORK", "BACKUP", "MANAGEMENT", "DATABASE"]
+        Description: "The name of ITSM service that this resource will be aligned to"
+      JobWbsTag:
+        Description: "Valid job/wbs (xxxxxx-xxxxx)"
+        AllowedPattern: "[0-9][0-9][0-9][0-9][0-9][0-9].[0-9][0-9][0-9][0-9][0-9]"
+        Type: String
+      OwnerTag:
+        Type: String
+        Default: cpeteam@parsons.com
+        AllowedPattern: "^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\\.[a-zA-Z0-9-.]+$"
+        Description: "POC email address (individual or distrabution list)"
+      DomainTag:
+        Type: String
+        Default: "parsons.com"
+        AllowedValues: ["parsons.com", "parsonsext.com", "parsonstst.com"]
+        Description: "What domain the server belongs to"
+
+    Resources:
+      # Secrets
+      # NGINX
+      NGINXConsoleSecret:
+        Type: AWS::SecretsManager::Secret
+        Properties:
+          Name: !Sub 'NGINX-console-secrets'
+          Description: "Secrets for NGINX Container Console Secret"
+          SecretString: !Ref NGINXEnvConsoleSecret
+          KmsKeyId: !GetAtt KMSKey.Arn
+          Tags:
+          - Key: "App"
+            Value: !Ref AppTag
+          - Key: "Domain"
+            Value: !Ref DomainTag
+          - Key: "Environment"
+            Value: !Ref EnvironmentTag
+          - Key: "GBU"
+            Value: !Ref GBUTag
+          - Key: "ITSM"
+            Value: !Ref ITSMTag
+          - Key: "Job/Wbs"
+            Value: !Ref JobWbsTag
+          - Key: "Owner"
+            Value: !Ref OwnerTag
+      NGINXRepoSecrets:
+        Type: AWS::SecretsManager::Secret
+        Properties:
+          Name: !Sub 'nginx-repo-secrets'
+          Description: "Secrets for NGINX Container Repo Access"
+          SecretString: !Sub '{ "username": "${NGINXContainerRepoUsername}", "password": "${NGINXContainerRepoPassword}" }'
+          KmsKeyId: !GetAtt KMSKey.Arn
+          Tags:
+          - Key: "App"
+            Value: !Ref AppTag
+          - Key: "Domain"
+            Value: !Ref DomainTag
+          - Key: "Environment"
+            Value: !Ref EnvironmentTag
+          - Key: "GBU"
+            Value: !Ref GBUTag
+          - Key: "ITSM"
+            Value: !Ref ITSMTag
+          - Key: "Job/Wbs"
+            Value: !Ref JobWbsTag
+          - Key: "Owner"
+            Value: !Ref OwnerTag
+      # Security Groups - NGINX
+      NGINXECSSecurityGroup:
+        Type: AWS::EC2::SecurityGroup
+        Properties:
+          GroupName: !Sub 'SG-NGINX-ecs'
+          GroupDescription: Controls access to ecs
+          VpcId: !Ref VPC
+          SecurityGroupEgress:
+            -
+              IpProtocol: udp
+              FromPort: 53
+              ToPort: 53
+              CidrIp: 0.0.0.0/0
+            -
+              IpProtocol: tcp
+              FromPort: 80
+              ToPort: 80
+              CidrIp: 0.0.0.0/0
+            -
+              IpProtocol: tcp
+              FromPort: 443
+              ToPort: 443
+              CidrIp: 0.0.0.0/0
+          SecurityGroupIngress:
+            -
+              IpProtocol: tcp
+              FromPort: !Ref NGINXContainerPort
+              ToPort: !Ref NGINXContainerPort
+              CidrIp: 172.16.0.0/12
+            -
+              IpProtocol: tcp
+              FromPort: !Ref NGINXContainerPort
+              ToPort: !Ref NGINXContainerPort
+              CidrIp: 10.0.0.0/8
+          Tags:
+          - Key: "Name"
+            Value: "SG-NGINX-ecs"
+          - Key: "App"
+            Value: !Ref AppTag
+          - Key: "Domain"
+            Value: !Ref DomainTag
+          - Key: "Environment"
+            Value: !Ref EnvironmentTag
+          - Key: "GBU"
+            Value: !Ref GBUTag
+          - Key: "ITSM"
+            Value: !Ref ITSMTag
+          - Key: "Job/Wbs"
+            Value: !Ref JobWbsTag
+          - Key: "Owner"
+            Value: !Ref OwnerTag
+      # KMS
+      KMSKey:
+        Type: AWS::KMS::Key
+        Properties:
+          Description: !Ref KMSKeyDescription
+          KeyPolicy:
+            Version: "2012-10-17"
+            Id: "key-policy-1"
+            Statement:
+              -
+                Sid: "Enable IAM User Permissions"
+                Effect: "Allow"
+                Principal:
+                  AWS: !Sub "arn:aws:iam::${AWS::AccountId}:root"
+                Action:
+                  - "kms:*"
+                Resource: "*"
+              -
+                Sid: "Allow access for Key Administrators"
+                Effect: "Allow"
+                Principal:
+                  AWS: !Sub "arn:aws:iam::${AWS::AccountId}:role/SAMLAdminRole"
+                Action:
+                  - "kms:Create*"
+                  - "kms:Describe*"
+                  - "kms:Enable*"
+                  - "kms:List*"
+                  - "kms:Put*"
+                  - "kms:Update*"
+                  - "kms:Revoke*"
+                  - "kms:Disable*"
+                  - "kms:Get*"
+                  - "kms:Delete*"
+                  - "kms:ScheduleKeyDeletion"
+                  - "kms:CancelKeyDeletion"
+                  - "kms:TagResource"
+                  - "kms:UntagResource"
+                Resource: "*"
+              -
+                Sid: "Allow use of the key"
+                Effect: "Allow"
+                Principal:
+                  AWS: [
+                    !Sub "arn:aws:iam::${AWS::AccountId}:role/SAMLAdminRole",
+                    !Sub "arn:aws:iam::${AWS::AccountId}:role/SAMLRunOps"
+                  ]
+                Action:
+                  - "kms:Encrypt"
+                  - "kms:Decrypt"
+                  - "kms:ReEncrypt*"
+                  - "kms:GenerateDataKey*"
+                  - "kms:DescribeKey"
+                Resource: "*"
+              -
+                Sid: "Allow attachment of persistent resources"
+                Effect: "Allow"
+                Principal:
+                  AWS: [
+                    !Sub "arn:aws:iam::${AWS::AccountId}:role/SAMLAdminRole",
+                    !Sub "arn:aws:iam::${AWS::AccountId}:role/SAMLRunOps"
+                  ]
+                Action:
+                  - "kms:CreateGrant"
+                  - "kms:ListGrants"
+                  - "kms:RevokeGrant"
+                Resource: "*"
+                Condition:
+                  Bool:
+                    "kms:GrantIsForAWSResource": "true"
+          Tags:
+          - Key: "App"
+            Value: !Ref AppTag
+          - Key: "Domain"
+            Value: !Ref DomainTag
+          - Key: "Environment"
+            Value: !Ref EnvironmentTag
+          - Key: "GBU"
+            Value: !Ref GBUTag
+          - Key: "ITSM"
+            Value: !Ref ITSMTag
+          - Key: "Job/Wbs"
+            Value: !Ref JobWbsTag
+          - Key: "Owner"
+            Value: !Ref OwnerTag
+          Enabled: true
+          EnableKeyRotation: true
+      KMSKeyAlias:
+        Type: AWS::KMS::Alias
+        Properties:
+          AliasName: !Sub "alias/${KMSKeyAliasName}"
+          TargetKeyId:
+            Ref: KMSKey
+      # Role/Policy for ECS Prod
+      ECSRole:
+        Type: AWS::IAM::Role
+        Properties:
+          RoleName: !Sub 'NGINX-ecs-role'
+          Description: Role to allow resource to do ECS
+          AssumeRolePolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action: sts:AssumeRole
+                Sid: ""
+                Principal:
+                  Service:
+                    - ecs-tasks.amazonaws.com
+          Tags:
+          - Key: "App"
+            Value: !Ref AppTag
+          - Key: "Domain"
+            Value: !Ref DomainTag
+          - Key: "Environment"
+            Value: !Ref EnvironmentTag
+          - Key: "GBU"
+            Value: !Ref GBUTag
+          - Key: "ITSM"
+            Value: !Ref ITSMTag
+          - Key: "Job/Wbs"
+            Value: !Ref JobWbsTag
+          - Key: "Owner"
+            Value: !Ref OwnerTag
+      PolicySecretAccess:
+        Type: AWS::IAM::Policy
+        Properties:
+          PolicyName: !Sub 'nginx-secrets-policy'
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              -
+                Effect: Allow
+                Action:
+                  - "secretsmanager:GetResourcePolicy"
+                  - "secretsmanager:GetSecretValue"
+                  - "secretsmanager:DescribeSecret"
+                  - "secretsmanager:ListSecretVersionIds"
+                Resource:
+                  - !Ref NGINXRepoSecrets
+                  - !Ref NGINXConsoleSecret
+              -
+                Effect: Allow
+                Resource: "*"
+                Action:
+                  - "logs:CreateLogStream"
+                  - "logs:PutLogEvents"
+              -
+                Effect: Allow
+                Action:
+                  - "kms:Decrypt"
+                Resource: !GetAtt KMSKey.Arn
+          Roles:
+            - !Ref ECSRole
+      # ALB addition - NGINX
+      NGINXTargetGroup:
+        Type: AWS::ElasticLoadBalancingV2::TargetGroup
+        Properties:
+          HealthCheckIntervalSeconds: 30
+          HealthCheckPath: "/health"
+          HealthCheckProtocol: HTTP
+          HealthCheckTimeoutSeconds: 5
+          HealthyThresholdCount: 2
+          TargetType: ip
+          Name: !Sub "tg-${NGINXServiceName}"
+          Port: !Ref NGINXContainerPort
+          Protocol: HTTP
+          UnhealthyThresholdCount: 2
+          VpcId: !Ref VPC
+      NGINXLoadBalancerRuleHost:
+        Type: AWS::ElasticLoadBalancingV2::ListenerRule
+        Properties:
+          Actions:
+            - TargetGroupArn: !Ref NGINXTargetGroup
+              Type: forward
+          Conditions:
+            - Field: host-header
+              Values:
+                - !Ref FQDN
+          ListenerArn:
+            Fn::ImportValue:
+              !Sub "${NGINXLoadBalancerListenerImportStackName}-LoadBalancerListener"
+          Priority: !Ref NGINXPriority
+      # ECS Cluster - NGINX
+      NGINXECSCluster:
+        Type: AWS::ECS::Cluster
+        Properties:
+          ClusterName: !Sub 'nginx-ecs-cluster'
+          Tags:
+          - Key: "App"
+            Value: !Ref AppTag
+          - Key: "Domain"
+            Value: !Ref DomainTag
+          - Key: "Environment"
+            Value: !Ref EnvironmentTag
+          - Key: "GBU"
+            Value: !Ref GBUTag
+          - Key: "ITSM"
+            Value: !Ref ITSMTag
+          - Key: "Job/Wbs"
+            Value: !Ref JobWbsTag
+          - Key: "Owner"
+            Value: !Ref OwnerTag
+      NGINXCloudWatchLogsGroup:
+        Type: AWS::Logs::LogGroup
+        Properties:
+          LogGroupName: !Sub '/${NGINXServiceName}'
+          RetentionInDays: 30
+      # NGINX Task Definition
+      NGINXTaskDefinition:
+        Type: AWS::ECS::TaskDefinition
+        Properties:
+          Family: !Ref NGINXServiceName
+          Cpu: !Ref NGINXContainerCpu
+          Memory: !Ref NGINXContainerMemory
+          Volumes:
+            - Name: nginx-conf-vol
+              Host: {}
+          NetworkMode: awsvpc
+          RequiresCompatibilities:
+            - FARGATE
+          ExecutionRoleArn: !Ref ECSRole
+          TaskRoleArn: !Ref ECSRole
+          Tags:
+          - Key: "App"
+            Value: !Ref AppTag
+          - Key: "Domain"
+            Value: !Ref DomainTag
+          - Key: "Environment"
+            Value: !Ref EnvironmentTag
+          - Key: "GBU"
+            Value: !Ref GBUTag
+          - Key: "ITSM"
+            Value: !Ref ITSMTag
+          - Key: "Job/Wbs"
+            Value: !Ref JobWbsTag
+          - Key: "Owner"
+            Value: !Ref OwnerTag
+          ContainerDefinitions:
+            - Name: !Ref NGINXServiceName
+              Cpu: !Ref NGINXContainerCpu
+              Memory: !Ref NGINXContainerMemory
+              Image: !Ref NGINXImageURL
+              Essential: true
+              DependsOn:
+                - Condition: COMPLETE
+                  ContainerName: nginx-config
+              Environment:
+                - Name: PORT
+                  Value: !Ref NGINXContainerPort
+                - Name: ACCESS_TOKEN
+                  Value: !Ref NGINXEnvAccessToken
+                - Name: LB_NAME
+                  Value: "NGINX"
+                - Name: CONSOLE_EXPIRATION
+                  Value: "24h"
+                - Name: PERFORMANCE_AVG_LENGTH
+                  Value: "10"
+                - Name: PROXY_URL
+                  Value: !Ref NGINXURL
+              PortMappings:
+                - ContainerPort: !Ref NGINXContainerPort
+              RepositoryCredentials:
+                CredentialsParameter: !Ref NGINXRepoSecrets
+              LogConfiguration:
+                LogDriver: awslogs
+                Options:
+                  awslogs-group: !Ref NGINXCloudWatchLogsGroup
+                  awslogs-region: !Ref "AWS::Region"
+                  awslogs-stream-prefix: !Ref NGINXServiceName
+              Secrets:
+                - Name: CONSOLE_SECRET
+                  ValueFrom: !Ref NGINXConsoleSecret
+            - Name: nginx-config
+              Image: bash
+              Essential: false
+              Command:
+                - -c
+                - echo $DATA | base64 -d - | tee /etc/nginx/nginx.conf
+              Environment:
+                - Name: DATA
+                  Value: !Ref B64NGINXConfig
+              MountPoints:
+                - ContainerPath: /etc/nginx
+                  SourceVolume: nginx-conf-vol
+      # Service - NGINX
+      NGINXService:
+        Type: AWS::ECS::Service
+        DependsOn: NGINXTaskDefinition
+        Properties:
+          ServiceName: !Ref NGINXServiceName
+          Cluster: !Ref NGINXECSCluster
+          LaunchType: FARGATE
+          DeploymentConfiguration:
+            MaximumPercent: 200
+            MinimumHealthyPercent: 75
+          DesiredCount: !Ref NGINXDesiredCount
+          Tags:
+          - Key: "App"
+            Value: !Ref AppTag
+          - Key: "Domain"
+            Value: !Ref DomainTag
+          - Key: "Environment"
+            Value: !Ref EnvironmentTag
+          - Key: "GBU"
+            Value: !Ref GBUTag
+          - Key: "ITSM"
+            Value: !Ref ITSMTag
+          - Key: "Job/Wbs"
+            Value: !Ref JobWbsTag
+          - Key: "Owner"
+            Value: !Ref OwnerTag
+          NetworkConfiguration:
+            AwsvpcConfiguration:
+              SecurityGroups:
+                - !Ref NGINXECSSecurityGroup
+              Subnets:
+                - !Ref PrivateSubnet1
+                - !Ref PrivateSubnet2
+          TaskDefinition: !Ref NGINXTaskDefinition
+          LoadBalancers:
+            - ContainerName: !Ref NGINXServiceName
+              ContainerPort: !Ref NGINXContainerPort
+              TargetGroupArn: !Ref NGINXTargetGroup

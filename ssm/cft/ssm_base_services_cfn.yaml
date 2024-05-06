@@ -1,0 +1,58 @@
+---
+# Template reference - templates/ssm/ssm_base_services.yaml
+AWSTemplateFormatVersion: 2010-09-09
+Description: 'Template to create Patching Maintenace Window, Targets and Tasks.'
+Parameters:
+  MaintenanceRunCommandS3Bucket:
+    Description: SSM Maintenance S3 Bucket Name
+    Type: String
+
+Resource:
+  MaintenanceS3Bucket:
+    Type: 'AWS::S3::Bucket'
+    Description: S3 Bucket to store maintenance logs
+    Properties:
+      BucketName: !Ref MaintenanceRunCommandS3Bucket
+      # AccessControl: Private
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      VersioningConfiguration:
+        Status: Enabled
+    DeletionPolicy: Delete
+  MaintenanceS3BucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref MaintenanceRunCommandS3Bucket
+      PolicyDocument:
+        Id: Policy1
+        Version: 2012-10-17
+        Statement:
+          - Sid: ReadWriteBucketObjects
+            Action:
+              - "s3:*"
+            Effect: Allow
+            Resource:
+              - !Sub "${MaintenanceS3Bucket.Arn}"
+              - !Sub "${MaintenanceS3Bucket.Arn}/*"
+            Principal: "*"
+            Condition:
+                StringEquals:
+                  aws:PrincipalOrgID:
+                    - o-xkwln3lsqp
+                    - o-24kon1cbk3
+                    - o-x0augfafh3
+                    - o-ij0mvoif2w
+  MaintenanceTargetSNS:
+    Type: 'AWS::SNS::Topic'
+    Properties:
+      TopicName: patch-notifications
+      FifoTopic: True
+
+

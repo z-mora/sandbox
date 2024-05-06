@@ -1,0 +1,64 @@
+properties([
+  parameters([
+    extendedChoice(
+      name: 'ACCOUNT',
+      value: 'aws/aws-comm-corp/it1, aws/aws-comm-corp/it2, aws/aws-comm-corp/it3, aws/aws-comm-corp/it4, aws/aws-comm-corp/it5, aws/aws-comm-corp/it6, aws/aws-comm-corp/it7, aws/aws-comm-corp/it8, aws/aws-comm-corp/it9',
+      defaultValue: ''
+      descriptionPropertyValue: 'oce-infraops-sandbox-01, oce-infraops-sandbox-02, oce-infraops-sandbox-03, oce-infraops-sandbox-04, oce-infraops-sandbox-05, oce-infraops-sandbox-06, oce-infraops-sandbox-07, oce-infraops-sandbox-08, oce-infraops-sandbox-09',
+      multiSelectDelimiter: ',',
+      quoteValue: false,
+      saveJSONParameterToFile: false,
+      type: 'PT_SINGLE_SELECT',
+      visibleItemCount: 10
+      description: 'AWS account to run Terragrunt Plan and Apply against',
+    ),
+  ])
+])
+
+
+//   if (params.ACCOUNT == "oce-infraops-sandbox-05") {
+//       "env.ACCOUNT_PATH = {aws/aws-comm-corp/it}"
+//   }
+
+// print "DEBUG: parameter ACCOUNT_PATH = ${env.ACCOUNT_PATH}"
+// print "DEBUG: parameter ACCOUNT_PATH = ${params.ACCOUNT_PATH}"
+// print "DEBUG: parameter ACCOUNT_PATH = ${ACCOUNT_PATH}"
+
+// else if (params.ACCOUNT == "oce-corp-it-*") {
+//   then ACCOUNT_PATH="aws/aws-comm-corp/it"
+//   return
+// }
+// else if (params.ACCOUNT == "oce-fed-bu-*") {
+//   then ACCOUNT_PATH="aws/aws-comm-fed/bu"
+//   return
+// }
+// else if (params.ACCOUNT == "oce-ci-it-*") {
+//   then ACCOUNT_PATH="aws/aws-comm-ci/it"
+//   return
+// }
+// else if (params.ACCOUNT == "oce-ci-bu-*") {
+//   then ACCOUNT_PATH="aws/aws-comm-ci/bu"
+//   return
+// }
+// else if (params.ACCOUNT == "pce-corp-it-*") {
+//   then ACCOUNT_PATH="aws/aws-gov-corp/it"
+//   return
+// }
+// else if (params.ACCOUNT == "pce-corp-bu*") {
+//   then ACCOUNT_PATH="aws/aws-gov-corp/bu"
+//   return
+// }
+// else if (params.ACCOUNT == "pce-fed-it-*") {
+//   then ACCOUNT_PATH="aws/aws-gov-fed/it"
+//   return
+// }
+// else if (params.ACCOUNT == "pce-fed-bu-*") {
+//   then ACCOUNT_PATH="aws/aws-gov-fed/bu"
+//   return
+// }
+
+// echo "${ACCOUNT_PATH}"
+
+
+
+

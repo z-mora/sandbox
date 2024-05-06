@@ -1,0 +1,107 @@
+---
+# Template reference - templates/ssm/ssm_crowdstrike_inventory.yaml
+AWSTemplateFormatVersion: '2010-09-09'
+Description: AWS CloudFormation template to create an AWS Systems Manager document and State Manager association to gather custom inventory metadata.
+
+Resources:
+  SoftwareInventoryDocument:
+    Type: AWS::SSM::Document
+    Properties:
+      DocumentType: Command
+      Content:
+        schemaVersion: '2.2'
+        description: Run Shell scripts to create Custom json file before collecting metadata
+        mainSteps:
+          - action: aws:runShellScript
+            name: runShellScript
+            precondition:
+              StringEquals:
+                - platformType
+                - Linux
+            inputs:
+              runCommand: '{{ shellCommands }}'
+          - action: aws:softwareInventory
+            name: CollectInventoryItems
+            inputs:
+              customInventory: '{{ customInventory }}'
+        parameters:
+          shellCommands:
+            type: StringList
+            description: (Required) Specify a shell script or a command to run.
+            minItems: 1
+            displayType: textarea
+          customInventory:
+            type: String
+            default: Enabled
+            description: (Optional) Collect data for custom inventory.
+            allowedValues:
+              - Enabled
+              - Disabled
+  CrowdStrikeAssociation:
+    Type: AWS::SSM::Association
+    Properties:
+      AssociationName: CustomInventoryCrowdStrike
+      Name: !Ref SoftwareInventoryDocument
+      ScheduleExpression: rate(1 day)
+      Targets:
+        - Key: tag:CrowdStrike
+          Values:
+            - "true"
+      Parameters:
+        customInventory:
+          - Enabled
+        shellCommands:
+          - TOKEN=$(curl -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds:3600")
+          - instanceId=$(curl http://169.254.169.254/latest/meta-data/instance-id -H "X-aws-ec2-metadata-token:${TOKEN}")
+          - inventoryPath=(/var/lib/amazon/ssm/${instanceId}/inventory/custom)
+          - printf '{"SchemaVersion":"1.0","TypeName":"Custom:CrowdStrike","Content":[' >> ${inventoryPath}/CustomCrowdStrike.json
+          - '    Status=$(sudo systemctl status falcon-sensor | grep Active:)'
+          - '    Version=$(sudo /opt/CrowdStrike/falconctl -g --version)'
+          - printf '{"Status":"%s","Version":"%s"}' "${Status}" "${Version}" >> ${inventoryPath}/CustomCrowdStrike.json
+          - printf ']}\n' >> ${inventoryPath}/CustomCrowdStrike.json
+
+  SplunkAssociation:
+    Type: AWS::SSM::Association
+    Properties:
+      AssociationName: CustomInventorySplunk
+      Name: !Ref SoftwareInventoryDocument
+      ScheduleExpression: rate(1 day)
+      Targets:
+        - Key: tag:Splunk
+          Values:
+            - "true"
+      Parameters:
+        customInventory:
+          - Enabled
+        shellCommands:
+          - TOKEN=$(curl -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds:3600")
+          - instanceId=$(curl http://169.254.169.254/latest/meta-data/instance-id -H "X-aws-ec2-metadata-token:${TOKEN}")
+          - inventoryPath=(/var/lib/amazon/ssm/${instanceId}/inventory/custom)
+          - printf '{"SchemaVersion":"1.0","TypeName":"Custom:SplunkForwarder","Content":[' >> ${inventoryPath}/CustomSplunk.json
+          - '    Status=$(sudo systemctl status SplunkForwarder | grep Active:)'
+          - '    Version=$(/opt/SplunkForwarder/bin/Splunk -version)'
+          - printf '{"Status":"%s","Version":"%s"}' "${Status}" "${Version}" >> ${inventoryPath}/CustomSplunk.json
+          - printf ']}\n' >> ${inventoryPath}/CustomSplunk.json
+
+  TenableAssociation:
+    Type: AWS::SSM::Association
+    Properties:
+      AssociationName: CustomInventoryTenable
+      Name: !Ref SoftwareInventoryDocument
+      ScheduleExpression: rate(1 day)
+      Targets:
+        - Key: tag:Tenable
+          Values:
+            - "true"
+      Parameters:
+        customInventory:
+          - Enabled
+        shellCommands:
+          - TOKEN=$(curl -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds:3600")
+          - instanceId=$(curl http://169.254.169.254/latest/meta-data/instance-id -H "X-aws-ec2-metadata-token:${TOKEN}")
+          - inventoryPath=(/var/lib/amazon/ssm/${instanceId}/inventory/custom)
+          - printf '{"SchemaVersion":"1.0","TypeName":"Custom:Tenable","Content":[' >> ${inventoryPath}/CustomTenable.json
+          - '    Status=$(sudo systemctl status nessusagent | grep Active:)'
+          - '    Version=$(/opt/nessus_agent/bin/nasl -version | grep Agent)'
+          - printf '{"Status":"%s","Version":"%s"}' "${Status}" "${Version}" >> ${inventoryPath}/CustomTenable.json
+          - printf ']}\n' >> ${inventoryPath}/CustomTenable.json

@@ -1,0 +1,127 @@
+---
+# Template reference - templates/ssm/ssm_patch_management_mon.yaml
+AWSTemplateFormatVersion: 2010-09-09
+Description: 'Template to create Patching Maintenace Window, Targets and Tasks.'
+Parameters:
+  MaintenanceWindowName:
+    Description: Maintenace window name
+    Type: String
+    Default: PatchGroupMonday
+  MaintenanceWindowDescription:
+    Description: Maintenance window description
+    Type: String
+    MaxLength: '128'
+    Default: Patch Group Monday Server Patching
+  MainteanceWindowTimezone:
+    Description: Timezone for schedule
+    Type: String
+    Default: UTC
+  MaintenanceWindowDuration:
+    Description: >-
+      How many hours the maintenance window will run from start Timezone (1-4hrs)
+    Type: Number
+    Default: 3
+    MinValue: 1
+    MaxValue: 4
+  MaintenanceWindowCutoff:
+    Description: >-
+      How many hours before maintenance window ends and will new jobs not start (1-2hrs)
+    Type: Number
+    Default: 1
+    MinValue: 1
+    MaxValue: 2
+  MaintenanceWindowSchedule:
+    Description: Cron/Rate expression for schedule
+    Type: String
+    Default: cron(0 1 ? * MON *)
+  MaintenanceTargetName:
+    Description: Maintenace Target Name (No Spaces)
+    Type: String
+    Default: patch_group_monday
+  MaintenanceTargetDescription:
+    Description: Patch Group Description
+    Type: String
+    MaxLength: '128'
+    Default: Patch Group Monday
+  MaintenanceTargetKey:
+    Description: >-
+      Tag Key should equal 'patch_group'
+    Type: String
+    Default: 'tag:patch_group'
+  MaintenaneTargetKeyValue:
+    Description: Tag Value for patch_group
+    Type: String
+    Default: MON
+  MaintenanceWindowRunCommandTaskName:
+    Description: Maintenace Window Task Name (No Spaces)
+    Type: String
+    Default: PatchManagement
+  MaintenanceWindowRunCommandTaskPriority:
+    Description: Job Priority - Number 0 - 5
+    Type: Number
+    Default: 1
+    MinValue: 0
+    MaxValue: 5
+  MaintenanceWindowRunCommandTaskMaxConcurrency:
+    Description: Integer or Percentage
+    Type: String
+    Default: 50%
+    AllowedPattern: '^([1-9][0-9]*|[1-9][0-9]%|[1-9]%|100%)$'
+  MaintenanceWindowRunCommandTaskMaxErrors:
+    Description: Integer or Percentage
+    Type: String
+    Default: 25%
+    AllowedPattern: '^([1-9][0-9]*|[1-9][0-9]%|[1-9]%|100%)$'
+  MaintenanceRunCommandS3Bucket:
+    Description: S3 Folder Name to store maintenance logs
+    Type: String
+    Default: par-ssm-maintenance-logs-us-east-1
+
+Resources:
+  MaintenanceWindow:
+    Type: AWS::SSM::MaintenanceWindow
+    Properties:
+      AllowUnassociatedTargets: false
+      Cutoff: !Ref MaintenanceWindowCutoff
+      Description: !Ref MaintenanceWindowDescription
+      Duration: !Ref MaintenanceWindowDuration
+      Name: !Ref MaintenanceWindowName
+      Schedule: !Ref MaintenanceWindowSchedule
+      ScheduleTimezone: !Ref MainteanceWindowTimezone
+  MaintenanceWindowTarget:
+    Type: AWS::SSM::MaintenanceWindowTarget
+    Properties:
+      Name: !Ref MaintenanceTargetName
+      Description: !Ref MaintenanceTargetDescription
+      WindowId: !Ref MaintenanceWindow
+      ResourceType: INSTANCE
+      Targets:
+        - Key: !Ref MaintenanceTargetKey
+          Values:
+            - !Ref MaintenaneTargetKeyValue
+  MaintenanceWindowRunCommandTask:
+    Type: AWS::SSM::MaintenanceWindowTask
+    Properties:
+      Name: !Ref MaintenanceWindowRunCommandTaskName
+      WindowId: !Ref MaintenanceWindow
+      Targets:
+        - Key: WindowTargetIds
+          Values:
+            - !Ref MaintenanceWindowTarget
+      TaskArn: AWS-RunPatchBaseline
+      TaskType: RUN_COMMAND
+      TaskInvocationParameters:
+        MaintenanceWindowRunCommandParameters:
+          DocumentVersion: $DEFAULT
+          # NotificationConfig:
+          #   NotificationArn: arn:
+          #   NotificationEvents:
+          #     - All
+          #   NotificationType: Command
+          Parameters: {Operation: ["Install"],RebootOption: ["RebootIfNeeded"]}
+          OutputS3BucketName: !Ref MaintenanceRunCommandS3Bucket
+          OutputS3KeyPrefix: !Sub ${AWS::AccountId}
+          ServiceRoleArn: !Sub "arn:aws:iam::${AWS::AccountId}:role/aws-service-role/ssm.amazonaws.com/AWSServiceRoleForAmazonSSM"
+      Priority: !Ref MaintenanceWindowRunCommandTaskPriority
+      MaxConcurrency: !Ref MaintenanceWindowRunCommandTaskMaxConcurrency
+      MaxErrors: !Ref MaintenanceWindowRunCommandTaskMaxErrors

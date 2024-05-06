@@ -1,0 +1,111 @@
+{
+  "Version": "2012-10-17",
+  "Id": "Policy1",
+  "Statement": [
+      {
+          "Sid": "Deny-if-not-HTTPS",
+          "Effect": "Deny",
+          "Principal": "*",
+          "Action": "s3:*",
+          "Resource": [
+              "arn:aws-us-gov:s3:::indure-data",
+              "arn:aws-us-gov:s3:::indure-data/*"
+          ],
+          "Condition": {
+              "Bool": {
+                  "aws:SecureTransport": "false"
+              }
+          }
+      },
+      {
+          "Sid": "Allow-Access-from-specific-VPCE-only",
+          "Effect": "Deny",
+          "Principal": {
+              "AWS": "arn:aws-us-gov:iam::416322655687:role/indure-s3-role"
+          },
+          "Action": "s3:*",
+          "Resource": [
+              "arn:aws-us-gov:s3:::indure-data",
+              "arn:aws-us-gov:s3:::indure-data/*"
+          ],
+          "Condition": {
+              "StringNotEquals": {
+                  "aws:sourceVpce": [
+                      "vpce-08f061c6dfcdcf04e",
+                      "vpce-0596437c5574de41a"
+                  ]
+              }
+          }
+      },
+      {
+          "Sid": "Allow-Access-from-specific-IPs-only",
+          "Effect": "Deny",
+          "Principal": {
+              "AWS": [
+                  "arn:aws-us-gov:iam::416322655687:user/frank.cisneros",
+                  "arn:aws-us-gov:iam::416322655687:user/Jake.kareus"
+              ]
+          },
+          "Action": "s3:*",
+          "Resource": [
+              "arn:aws-us-gov:s3:::indure-data",
+              "arn:aws-us-gov:s3:::indure-data/*"
+          ],
+          "Condition": {
+              "NotIpAddress": {
+                  "aws:sourceIP": [
+                      "10.35.1.0/24",
+                      "10.35.2.0/24",
+                      "206.219.192.0/18",
+                      "63.238.47.2/32",
+                      "63.238.47.11/32",
+                      "157.185.39.254/32",
+                      "157.185.60.254/32",
+                      "45.33.205.22/32"
+                  ]
+              }
+          }
+      },
+      {
+          "Sid": "Allow-Actions",
+          "Effect": "Allow",
+          "Principal": {
+              "AWS": [
+                  "arn:aws-us-gov:iam::416322655687:user/frank.cisneros",
+                  "arn:aws-us-gov:iam::416322655687:user/Jake.kareus",
+                  "arn:aws-us-gov:iam::416322655687:role/indure-s3-role"
+              ]
+          },
+          "Action": [
+              "s3:GetObject",
+              "s3:PutObject",
+              "s3:ListBucket",
+              "s3:DeleteObject"
+          ],
+          "Resource": [
+              "arn:aws-us-gov:s3:::indure-data",
+              "arn:aws-us-gov:s3:::indure-data/*"
+          ]
+      },
+      {
+          "Sid": "Data-Transfer",
+          "Effect": "Allow",
+          "Principal": {
+              "AWS": [
+                  "arn:aws-us-gov:iam::416322655687:user/PIX"
+              ]
+          },
+          "Action": [
+              "s3:PutObject"
+          ],
+          "Resource": [
+              "arn:aws-us-gov:s3:::indure-data/Data-Transfer/*"
+          ],
+          "Condition": {
+            "StringEquals": {
+              "s3:x-amz-acl": "bucket-owner-full-control"
+            }
+          }
+        }
+  ]
+}

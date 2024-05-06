@@ -1,0 +1,689 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: A CloudFormation template for NGINX running on Fargate.
+
+Metadata:
+      AWS::CloudFormation::Interface:
+        ParameterGroups:
+          - Label:
+              default: Network Parameters
+            Parameters:
+            - VPC
+            - SubnetA
+            - SubnetB
+          - Label:
+              default: Application/Container Parameters
+            Parameters:
+            - ServiceName
+            - Subdomain
+            - HostedZoneName
+            - ContainerPort
+            - Image
+            - ImageRepoUsername
+            - ImagerepoPassword
+            - EnvAccessToken
+            - EnvConsoleSecret
+            - HealthCheckPath
+            - Certificate
+            - B64NGINXConfig
+          -Label:
+              default: Cluster Parameters
+            Parameters:
+            - MinContainers
+            - MaxContainers
+            - AutoScalingTargetValue
+            - LoadBalancerPort1
+            - LoadBalancerPort2
+          - Label:
+              default: KMS Key Configuration
+            Parameters:
+            - KMSKeyDescription
+            - KMSKeyAliasName
+          - Label:
+              default: Tags
+            Parameters:
+            - Name
+            - JobWbs
+            - App
+            - GBU
+            - Environment
+            - ITSM
+            - Owner
+            - Domain
+        ParameterLabels:
+          # App/Task Labels
+          ServiceName:
+            default: Service Name
+          Subdomain:
+            default: Application Name
+          HostedZoneName:
+            default: Hosted Zone
+          ContainerPort:
+            default: Container Port
+          Image:
+            default: Image URL
+          ImageRepoUsername:
+            default: Private Repo Username
+          ImageRepoPassword:
+            default: Private Repo Password
+          EnvAccessToken:
+            default: Access Token
+          EnvConsoleSecret:
+            default: Console Secret
+          Certificate:
+            default: Certificate ARN
+          B64NGINXConfig:
+            default: Base64 Encoded Config File
+          # Cluster Labels
+          MinContainers:
+            default: Minimum Containers for Autoscaling
+          MaxContainers:
+            default: Maximum Containers for Autoscaling
+          AutoScalingTargetValue:
+            default: Target CPU Utilization (%)
+          LoadBalancerPort1:
+            default: Listener Port 1
+          LoadBalancerPort2:
+            default: Listener Port 2
+          # KMS Key Labels
+          KMSKeyDescription:
+            default: KMS Key Description
+          KMSKeyAliasName:
+            default: KMS Key Alias
+          # Network Labels
+          VPC:
+            default: VPC
+          SubnetA:
+            default: Private subnet A
+          SubnetB:
+            default: Private subnet B
+          # Tag Labels
+          Name:
+            default: Name Tag
+          JobWbs:
+            default: Job/Wbs Tag
+          App:
+            default: App Tag
+          GBU:
+            default: GBU Tag
+          Environment:
+            default: Environment Tag
+          ITSM:
+            default: ITSM Tag
+          Owner:
+            default: Owner Tag
+          Domain:
+            default: Domain Tag
+
+Parameters:
+  VPC:
+    Type: AWS::EC2::VPC::Id
+  SubnetA:
+    Type: AWS::EC2::Subnet::Id
+  SubnetB:
+    Type: AWS::EC2::Subnet::Id
+  Image:
+    Type: String
+    Default: https://docker.polarisalpha.com/nginx:latest
+    Description: Update with the Docker image. "You can use images in the Docker Hub registry or specify other repositories (repository-url/image:tag)."
+  ImageRepoUsername:
+    Type: String
+  ImagerepoPassword:
+    Type: String
+    NoEcho: true
+  KMSKeyDescription:
+    Type: String
+    MinLength: 0
+    MaxLength: 8192
+    Default: "nginx-parsons-com"
+    Description: KMS Key Description
+  KMSKeyAliasName:
+    Type: String
+    MinLength: 1
+    MaxLength: 250
+    AllowedPattern: "^[a-zA-Z0-9:_-]+$"
+    ConstraintDescription: "alphanumeric,:,_,- are allowed."
+    Default: "nginx-key"
+    Description: KMS Key Alias - do not include alias/, it is included for you
+  EnvAccessToken:
+    Type: String
+    Description: Access Token
+    NoEcho: true
+  EnvConsoleSecret:
+    Type: String
+    Description: Console Secret
+    NoEcho: true
+  Certificate:
+    Type: String
+    Default: 'arn:aws:acm:us-east-1:345829881683:certificate/32c7d77a-22ec-4e59-a8f8-4649dac6a57d'
+    Description: Update with the certificate ARN from Certificate Manager, which must exist in the same region.
+  B64NGINXConfig:
+    Type: String
+    Default: "aHR0cCB7CiMgUG9ydCA4MAp1cHN0cmVhbSBjZnRyZXBfcHJvZF9iYWNrX2VuZF9wb3J0XzgwIHsKaGFzaCAkcmVtb3RlX2FkZHI7CiAgICBzZXJ2ZXIgMTAuNDUuNTMuMTc3OjgwIG1heF9mYWlscz0zIGZhaWxfdGltZW91dD0zMHM7CiAgICBzZXJ2ZXIgMTAuNDUuNTIuMTE5OjgwIG1heF9mYWlscz0zIGZhaWxfdGltZW91dD0zMHM7CiAgICB9CnNlcnZlciB7CiAgICBsaXN0ZW4gODA7CiAgICBwcm94eV9wYXNzIGNmdHJlcF9wcm9kX2JhY2tfZW5kX3BvcnRfODA7CiAgICB9CiMgUG9ydCA0NDMKdXBzdHJlYW0gY2Z0cmVwX3Byb2RfYmFja19lbmRfcG9ydF80NDMgewpoYXNoICRyZW1vdGVfYWRkcjsKICAgIHNlcnZlciAxMC40NS41My4xNzc6NDQzIG1heF9mYWlscz0zIGZhaWxfdGltZW91dD0zMHM7CiAgICBzZXJ2ZXIgMTAuNDUuNTIuMTE5OjQ0MyBtYXhfZmFpbHM9MyBmYWlsX3RpbWVvdXQ9MzBzOwogICAgfQpzZXJ2ZXIgewogICAgbGlzdGVuIDQ0MzsKICAgIHByb3h5X3Bhc3MgY2Z0cmVwX3Byb2RfYmFja19lbmRfcG9ydF80NDM7CiAgICB9CnNlcnZlciB7CiAgICBsb2NhdGlvbiAvaGVhbHRoIHsKICAgICAgICBhY2Nlc3NfbG9nIG9mZjsKICAgICAgICByZXR1cm4gMjAwICdIZWFsdGh5ISc7CiAgICAgICAgYWRkX2hlYWRlciBDb250ZW50LVR5cGUgdGV4dC9wbGFpbjsKICAgICAgICB9CiAgICB9Cn0="
+    Description: Base 64 NGINX Configuration File ($ cat nginx.conf | openssl base64)
+  ServiceName:
+    Type: String
+    # update with the name of the service
+    Default: MyService
+  ContainerPort:
+    Type: Number
+    Default: 443
+  LoadBalancerPort1:
+    Type: Number
+    Default: 80
+  LoadBalancerPort2:
+    Type: Number
+    Default: 443
+  HealthCheckPath:
+    Type: String
+    Default: /healthcheck
+  HostedZoneName:
+    Type: String
+    Default: parsons.com
+    AllowedValues: ["parsons.com", "sanbox.parsons.com"]
+  Subdomain:
+    Type: String
+    Default: myservice
+  # for autoscaling
+  MinContainers:
+    Type: Number
+    Default: 2
+  # for autoscaling
+  MaxContainers:
+    Type: Number
+    Default: 10
+  # target CPU utilization (%)
+  AutoScalingTargetValue:
+    Type: Number
+    Default: 50
+  # Tags
+  Name:
+    Type: String
+    Default: "VANVA01ECSNGINX01"
+    Description: "The name of the container resource"
+  App:
+    Type: String
+    Default: "NGINX"
+    Description: "The name of primary application the container will support. Must be valid Application name from Application portfolio"
+  GBU:
+    Type: String
+    Default: "COR"
+    AllowedValues: ["COR", "FED", "MEA", "INF"]
+    Description: "The GBU of Job/Wbs # that will be charge for this resource"
+  Environment:
+    Type: String
+    Default: "PROD"
+    AllowedValues: ["PROD", "MANAGEMENT", "TEST", "DEV", "QA", "DR"]
+    Description: "The environment this resource resides in"
+  ITSM:
+    Type: String
+    Default: "SERVER"
+    AllowedValues: ["SERVER", "STORAGE", "NETWORK", "BACKUP", "MANAGEMENT", "DATABASE"]
+    Description: "The name of ITSM service that this resource will be aligned to"
+  JobWbs:
+    Description: "Valid job/wbs (xxxxxx-xxxxx)"
+    AllowedPattern: "[0-9][0-9][0-9][0-9][0-9][0-9].[0-9][0-9][0-9][0-9][0-9]"
+    Type: String
+  Owner:
+    Type: String
+    Default: cpeteam@parsons.com
+    AllowedPattern: "^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\\.[a-zA-Z0-9-.]+$"
+    Description: "POC email address (individual or distrabution list)"
+  Domain:
+    Type: String
+    Default: "parsons.com"
+    AllowedValues: ["parsons.com", "parsonsext.com", "parsonstst.com"]
+    Description: "What domain the server belongs to"
+
+Resources:
+  ConsoleSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Sub 'console-secrets'
+      Description: "Secrets for Container Console Secret"
+      SecretString: !Ref EnvConsoleSecret
+      KmsKeyId: !GetAtt KMSKey.Arn
+      Tags:
+      - Key: "App"
+        Value: !Ref App
+      - Key: "Domain"
+        Value: !Ref Domain
+      - Key: "Environment"
+        Value: !Ref Environment
+      - Key: "GBU"
+        Value: !Ref GBU
+      - Key: "ITSM"
+        Value: !Ref ITSM
+      - Key: "Job/Wbs"
+        Value: !Ref JobWbs
+      - Key: "Owner"
+        Value: !Ref Owner
+  RepoSecrets:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Sub 'repo-secrets'
+      Description: "Secrets for NGINX Container Repo Access"
+      SecretString: !Sub '{ "username": "${ImageRepoUsername}", "password": "${ImageRepoPassword}" }'
+      KmsKeyId: !GetAtt KMSKey.Arn
+    Tags:
+      - Key: "App"
+        Value: !Ref App
+      - Key: "Domain"
+        Value: !Ref Domain
+      - Key: "Environment"
+        Value: !Ref Environment
+      - Key: "GBU"
+        Value: !Ref GBU
+      - Key: "ITSM"
+        Value: !Ref ITSM
+      - Key: "Job/Wbs"
+        Value: !Ref JobWbs
+      - Key: "Owner"
+        Value: !Ref Owner
+  KMSKey:
+    Type: AWS::KMS::Key
+    Properties:
+      Description: !Ref KMSKeyDescription
+      KeyPolicy:
+        Version: "2012-10-17"
+        Id: "key-policy-1"
+        Statement:
+          -
+            Sid: "Enable IAM User Permissions"
+            Effect: "Allow"
+            Principal:
+              AWS: !Sub "arn:aws:iam::${AWS::AccountId}:root"
+            Action:
+              - "kms:*"
+            Resource: "*"
+          -
+            Sid: "Allow access for Key Administrators"
+            Effect: "Allow"
+            Principal:
+              AWS: !Sub "arn:aws:iam::${AWS::AccountId}:role/SAMLAdminRole"
+            Action:
+              - "kms:Create*"
+              - "kms:Describe*"
+              - "kms:Enable*"
+              - "kms:List*"
+              - "kms:Put*"
+              - "kms:Update*"
+              - "kms:Revoke*"
+              - "kms:Disable*"
+              - "kms:Get*"
+              - "kms:Delete*"
+              - "kms:ScheduleKeyDeletion"
+              - "kms:CancelKeyDeletion"
+              - "kms:TagResource"
+              - "kms:UntagResource"
+            Resource: "*"
+          -
+            Sid: "Allow use of the key"
+            Effect: "Allow"
+            Principal:
+              AWS: [
+                !Sub "arn:aws:iam::${AWS::AccountId}:role/SAMLAdminRole",
+                !Sub "arn:aws:iam::${AWS::AccountId}:role/SAMLRunOps"
+              ]
+            Action:
+              - "kms:Encrypt"
+              - "kms:Decrypt"
+              - "kms:ReEncrypt*"
+              - "kms:GenerateDataKey*"
+              - "kms:DescribeKey"
+            Resource: "*"
+          -
+            Sid: "Allow attachment of persistent resources"
+            Effect: "Allow"
+            Principal:
+              AWS: [
+                !Sub "arn:aws:iam::${AWS::AccountId}:role/SAMLAdminRole",
+                !Sub "arn:aws:iam::${AWS::AccountId}:role/SAMLRunOps"
+              ]
+            Action:
+              - "kms:CreateGrant"
+              - "kms:ListGrants"
+              - "kms:RevokeGrant"
+            Resource: "*"
+            Condition:
+              Bool:
+                "kms:GrantIsForAWSResource": "true"
+      Tags:
+      - Key: "App"
+        Value: !Ref App
+      - Key: "Domain"
+        Value: !Ref Domain
+      - Key: "Environment"
+        Value: !Ref Environment
+      - Key: "GBU"
+        Value: !Ref GBU
+      - Key: "ITSM"
+        Value: !Ref ITSM
+      - Key: "Job/Wbs"
+        Value: !Ref JobWbs
+      - Key: "Owner"
+        Value: !Ref Owner
+      Enabled: true
+      EnableKeyRotation: true
+  KMSKeyAlias:
+    Type: AWS::KMS::Alias
+    Properties:
+      AliasName: !Sub "alias/${KMSKeyAliasName}"
+      TargetKeyId:
+        Ref: KMSKey
+  Cluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: !Join ['', [!Ref ServiceName, Cluster]]
+  TaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    # Makes sure the log group is created before it is used.
+    DependsOn: LogGroup
+    Properties:
+      # Name of the task definition. Subsequent versions of the task definition are grouped together under this name.
+      Family: !Join ['', [!Ref ServiceName, TaskDefinition]]
+      # awsvpc is required for Fargate
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - FARGATE
+      # 256 (.25 vCPU) - Available memory values: 0.5GB, 1GB, 2GB
+      # 512 (.5 vCPU) - Available memory values: 1GB, 2GB, 3GB, 4GB
+      # 1024 (1 vCPU) - Available memory values: 2GB, 3GB, 4GB, 5GB, 6GB, 7GB, 8GB
+      # 2048 (2 vCPU) - Available memory values: Between 4GB and 16GB in 1GB increments
+      # 4096 (4 vCPU) - Available memory values: Between 8GB and 30GB in 1GB increments
+      Cpu: 256
+      # 0.5GB, 1GB, 2GB - Available cpu values: 256 (.25 vCPU)
+      # 1GB, 2GB, 3GB, 4GB - Available cpu values: 512 (.5 vCPU)
+      # 2GB, 3GB, 4GB, 5GB, 6GB, 7GB, 8GB - Available cpu values: 1024 (1 vCPU)
+      # Between 4GB and 16GB in 1GB increments - Available cpu values: 2048 (2 vCPU)
+      # Between 8GB and 30GB in 1GB increments - Available cpu values: 4096 (4 vCPU)
+      Memory: 0.5GB
+      Volumes:
+        - Name: nginx-conf-vol
+          Host: {}
+      # A role needed by ECS.
+      # "The ARN of the task execution role that containers in this task can assume. All containers in this task are granted the permissions that are specified in this role."
+      # "There is an optional task execution IAM role that you can specify with Fargate to allow your Fargate tasks to make API calls to Amazon ECR."
+      ExecutionRoleArn: !Ref ExecutionRole
+      # "The Amazon Resource Name (ARN) of an AWS Identity and Access Management (IAM) role that grants containers in the task permission to call AWS APIs on your behalf."
+      TaskRoleArn: !Ref TaskRole
+      Tags:
+      - Key: "App"
+        Value: !Ref App
+      - Key: "Domain"
+        Value: !Ref Domain
+      - Key: "Environment"
+        Value: !Ref Environment
+      - Key: "GBU"
+        Value: !Ref GBU
+      - Key: "ITSM"
+        Value: !Ref ITSM
+      - Key: "Job/Wbs"
+        Value: !Ref JobWbs
+      - Key: "Owner"
+        Value: !Ref Owner
+      ContainerDefinitions:
+        - Name: !Ref ServiceName
+          Image: !Ref Image
+          Essential: true
+          DependsOn:
+            - Condition: COMPLETE
+              ContainerName: nginx-config
+          Environment:
+          - Name: PORT
+            Value: !Ref ContainerPort
+          - Name: ACCESS_TOKEN
+            Value: !Ref EnvAccessToken
+          - Name: CONSOLE_EXPIRATION
+            Value: "24h"
+          - Name: PERFORMANCE_AVG_LENGTH
+            Value: "10"
+          - Name: PROXY_URL
+            Value: !Join ['', ['https://', !Ref DNSRecord]]
+          PortMappings:
+            - ContainerPort: !Ref ContainerPort
+          # Private Repo Credentials
+          RepositoryCredentials:
+            CredentialsParameter: !Ref RepoSecrets
+          # Send logs to CloudWatch Logs
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-region: !Ref AWS::Region
+              awslogs-group: !Ref LogGroup
+              awslogs-stream-prefix: ecs
+          Secrets:
+            - Name: CONSOLE_SECRET
+              ValueFrom: !Ref ConsoleSecret
+        - Name: nginx-config
+          Image: bash
+          Essential: false
+          Command:
+            - -c
+            - echo $DATA | base64 -d - | tee /etc/nginx/nginx.conf
+          Environment:
+            - Name: DATA
+              Value: !Ref B64NGINXConfig
+          MountPoints:
+            - ContainerPath: /etc/nginx
+              SourceVolume: nginx-conf-vol
+  # A role needed by ECS
+  ExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Join ['', [!Ref ServiceName, ExecutionRole]]
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy'
+  # A role for the containers
+  TaskRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Join ['', [!Ref ServiceName, TaskRole]]
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: 'sts:AssumeRole'
+      # ManagedPolicyArns:
+      #   -
+      # Policies:
+      #   -
+  # A role needed for auto scaling
+  AutoScalingRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Join ['', [!Ref ServiceName, AutoScalingRole]]
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceAutoscaleRole'
+  ContainerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: !Join ['', [!Ref ServiceName, ContainerSecurityGroup]]
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: !Ref ContainerPort
+          ToPort: !Ref ContainerPort
+          SourceSecurityGroupId: !Ref LoadBalancerSecurityGroup
+  LoadBalancerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: !Join ['', [!Ref ServiceName, LoadBalancerSecurityGroup]]
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: !Ref LoadBalancerPort1
+          ToPort: !Ref LoadBalancerPort2
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: !Ref LoadBalancerPort2
+          ToPort: !Ref LoadBalancerPort2
+          CidrIp: 0.0.0.0/0
+  Service:
+    Type: AWS::ECS::Service
+    # This dependency is needed so that the load balancer is setup correctly in time
+    DependsOn:
+      - ListenerHTTPS
+    Properties:
+      ServiceName: !Ref ServiceName
+      Cluster: !Ref Cluster
+      TaskDefinition: !Ref TaskDefinition
+      DeploymentConfiguration:
+        MinimumHealthyPercent: 75
+        MaximumPercent: 200
+      DesiredCount: 2
+      # This may need to be adjusted if the container takes a while to start up
+      HealthCheckGracePeriodSeconds: 30
+      LaunchType: FARGATE
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          # change to DISABLED if you're using private subnets that have access to a NAT gateway
+          AssignPublicIp: ENABLED
+          Subnets:
+            - !Ref SubnetA
+            - !Ref SubnetB
+          SecurityGroups:
+            - !Ref ContainerSecurityGroup
+      LoadBalancers:
+        - ContainerName: !Ref ServiceName
+          ContainerPort: !Ref ContainerPort
+          TargetGroupArn: !Ref TargetGroup
+      Tags:
+      - Key: "App"
+        Value: !Ref App
+      - Key: "Domain"
+        Value: !Ref Domain
+      - Key: "Environment"
+        Value: !Ref Environment
+      - Key: "GBU"
+        Value: !Ref GBU
+      - Key: "ITSM"
+        Value: !Ref ITSM
+      - Key: "Job/Wbs"
+        Value: !Ref JobWbs
+      - Key: "Owner"
+        Value: !Ref Owner
+  TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      HealthCheckIntervalSeconds: 10
+      # will look for a 200 status code by default unless specified otherwise
+      HealthCheckPath: !Ref HealthCheckPath
+      HealthCheckTimeoutSeconds: 5
+      UnhealthyThresholdCount: 2
+      HealthyThresholdCount: 2
+      Name: !Join ['', [!Ref ServiceName, TargetGroup]]
+      Port: !Ref ContainerPort
+      Protocol: HTTP
+      TargetGroupAttributes:
+        - Key: deregistration_delay.timeout_seconds
+          Value: 60 # default is 300
+      TargetType: ip
+      VpcId: !Ref VPC
+  ListenerHTTP:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - Type: redirect
+          RedirectConfig:
+            Protocol: HTTPS
+            Port: "443"
+            StatusCode: "HTTP_301"
+      LoadBalancerArn: !Ref LoadBalancer
+      Port: 80
+      Protocol: HTTP
+  ListenerHTTPS:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - TargetGroupArn: !Ref TargetGroup
+          Type: forward
+      LoadBalancerArn: !Ref LoadBalancer
+      Port: !Ref LoadBalancerPort
+      Protocol: HTTPS
+      Certificates:
+        - CertificateArn: !Ref Certificate
+  LoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: !Join ['', [!Ref ServiceName, LoadBalancer]]
+      LoadBalancerAttributes:
+        # 60 is the default, but is specified here in case it needs to be changed
+        - Key: idle_timeout.timeout_seconds
+          Value: 60
+        - Key: load_balancing.cross_zone.enabled
+          Value: true
+      # "internet-facing" is also an option
+      Scheme: internal
+      SecurityGroups:
+        - !Ref LoadBalancerSecurityGroup
+      Subnets:
+        - !Ref SubnetA
+        - !Ref SubnetB
+      Tags:
+      - Key: "Name"
+        Value: !Ref Name
+      - Key: "App"
+        Value: !Ref App
+      - Key: "GBU"
+        Value: !Ref GBU
+      - Key: "Environment"
+        Value: !Ref Environment
+      - Key: "ITSM"
+        Value: !Ref ITSM
+      - Key: "Job/Wbs"
+        Value: !Ref JobWbs
+      - Key: "Owner"
+        Value: !Ref Owner
+  DNSRecord:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneName: !Join ['', [!Ref HostedZoneName, .]]
+      Name: !Join ['', [!Ref Subdomain, ., !Ref HostedZoneName, .]]
+      Type: A
+      AliasTarget:
+        DNSName: !GetAtt LoadBalancer.DNSName
+        HostedZoneId: !GetAtt LoadBalancer.CanonicalHostedZoneID
+  LogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Join ['', [/ecs/, !Ref ServiceName, TaskDefinition]]
+  AutoScalingTarget:
+    Type: AWS::ApplicationAutoScaling::ScalableTarget
+    Properties:
+      MinCapacity: !Ref MinContainers
+      MaxCapacity: !Ref MaxContainers
+      ResourceId: !Join ['/', [service, !Ref Cluster, !GetAtt Service.Name]]
+      ScalableDimension: ecs:service:DesiredCount
+      ServiceNamespace: ecs
+      # "The Amazon Resource Name (ARN) of an AWS Identity and Access Management (IAM) role that allows Application Auto Scaling to modify your scalable target."
+      RoleARN: !GetAtt AutoScalingRole.Arn
+  AutoScalingPolicy:
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+    Properties:
+      PolicyName: !Join ['', [!Ref ServiceName, AutoScalingPolicy]]
+      PolicyType: TargetTrackingScaling
+      ScalingTargetId: !Ref AutoScalingTarget
+      TargetTrackingScalingPolicyConfiguration:
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ECSServiceAverageCPUUtilization
+        ScaleInCooldown: 10
+        ScaleOutCooldown: 10
+        # Keep things at or lower than 50% CPU utilization, for example
+        TargetValue: !Ref AutoScalingTargetValue
+Outputs:
+  Endpoint:
+    Description: Endpoint
+    Value: !Join ['', ['https://', !Ref DNSRecord]]

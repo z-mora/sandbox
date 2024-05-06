@@ -1,0 +1,1106 @@
+---
+    # Template reference - templates/apps/proxy_lb_fargate_cfn.yaml
+    AWSTemplateFormatVersion: 2010-09-09
+    Description: FarGate Deployment template for Sticky NGINX or HAProxy - For Production
+
+    Metadata:
+      AWS::CloudFormation::Interface:
+        ParameterGroups:
+          - Label:
+              default: NGINX Proxy Application/Container
+            Parameters:
+            - CreateProxyNGINX
+            - NGINXLoadBalancerListenerImportStackName
+            - NGINXServiceName
+            - NGINXImageURL
+            - NGINXContainerPort
+            - NGINXContainerCpu
+            - NGINXContainerMemory
+            - NGINXDesiredCount
+            - NGINXPriority
+            - NGINXContainerRepoUsername
+            - NGINXContainerRepoPassword
+            - NGINXEnvAccessToken
+            - NGINXEnvConsoleSecret
+            - NGINXAppConfigFile
+            - NGINXMainConfigFile
+            - B64NGINXConfig
+          - Label:
+              default: HAProxy Application/Container
+            Parameters:
+            - CreateHAProxy
+            - HAProxyLoadBalancerListenerImportStackName
+            - HAProxyServiceName
+            - HAProxyImageURL
+            - HAProxyContainerPort
+            - HAProxyContainerCpu
+            - HAProxyContainerMemory
+            - HAProxyDesiredCount
+            - HAProxyPriority
+            - HAProxyContainerRepoUsername
+            - HAProxyContainerRepoPassword
+            - HAProxyEnvAccessToken
+            - HAProxyEnvConsoleSecret
+            - HAProxyAppConfigFile
+            - HAPRoxyMainConfigFile
+            - B64HAProxyConfig
+          - Label:
+              default: KMS Key Configuration
+            Parameters:
+            - KMSKeyDescription
+            - KMSKeyAliasName
+          - Label:
+              default: S3 Configuration
+            Parameters:
+            - ProxyS3BucketPrefix
+          - Label:
+              default: Network Parameters
+            Parameters:
+            - VPC
+            - PrivateSubnet1
+            - PrivateSubnet2
+            - PrivateSubnet3
+            - FQDN
+          - Label:
+              default: Tags
+            Parameters:
+            - NameTag
+            - JobWbsTag
+            - AppTag
+            - GBUTag
+            - EnvironmentTag
+            - ITSMTag
+            - OwnerTag
+            - DomainTag
+        ParameterLabels:
+          # NGINX Labels
+          CreateProxyNGINX:
+            default: Create NGINX Proxy?
+          NGINXLoadBalancerListenerImportStackName:
+            default: Proxy Stack Name
+          NGINXServiceName:
+            default: Service Name
+          NGINXImageURL:
+            default: URL
+          NGINXContainerPort:
+            default: Active Port
+          NGINXContainerCpu:
+            default: CPU Units
+          NGINXContainerMemory:
+            default: Memory
+          NGINXDesiredCount:
+            default: Number of images to run
+          NGINXPriority:
+            default: ALB Listener Rule Priority
+          NGINXContainerRepoUsername:
+            default: Repo Username
+          NGINXContainerRepoPassword:
+            default: Repo Password
+          NGINXEnvAccessToken:
+            default: Access Token
+          NGINXEnvConsoleSecret:
+            default: Console Secret
+          NGINXAppConfigFile:
+            default: App Conf FileName
+          NGINXMainConfigFile:
+            default: Main Conf FileName
+          B64NGINXConfig:
+            default: B64 Conf File
+          # HAProxy Labels
+          CreateHAProxy:
+            default: Create HAProxy?
+          HAProxyLoadBalancerListenerImportStackName:
+            default: Proxy Stack Name
+          HAProxyServiceName:
+            default: Service Name
+          HAProxyImageURL:
+            default: URL
+          HAProxyContainerPort:
+            default: Active Port
+          HAProxyContainerCpu:
+            default: CPU Units
+          HAProxyContainerMemory:
+            default: Memory
+          HAProxyDesiredCount:
+            default: Number of images to run
+          HAProxyPriority:
+            default: ALB Listener Rule Priority
+          HAProxyContainerRepoUsername:
+            default: Repo Username
+          HAProxyContainerRepoPassword:
+            default: Repo Password
+          HAProxyEnvAccessToken:
+            default: Access Token
+          HAProxyEnvConsoleSecret:
+            default: Console Secret
+          HAProxyAppConfigFile:
+            default: App Conf FileName
+          HAProxyMainConfigFile:
+            default: Main Conf FileName
+          B64HAProxyConfig:
+            default: B64 Conf File
+          # KMS Key Labels
+          KMSKeyDescription:
+            default: KMS Key Description
+          KMSKeyAliasName:
+            default: KMS Key Alias
+          # S3 Bucket Labels
+          ProxyS3BucketPrefix:
+            default: S3 Bucket and Prefix
+          # Network Labels
+          VPC:
+            default: VPC
+          PrivateSubnet1:
+            default: Private subnet 1
+          PrivateSubnet2:
+            default: Private subnet 2
+          PrivateSubnet3:
+            default: Private subnet 3
+          FQDN:
+            default: FQDN for Host App
+          # Tag Labels
+          NameTag:
+            default: Name Tag
+          JobWbsTag:
+            default: Job/Wbs Tag
+          AppTag:
+            default: App Tag
+          GBUTag:
+            default: GBU Tag
+          EnvironmentTag:
+            default: Environment Tag
+          ITSMTag:
+            default: ITSM Tag
+          OwnerTag:
+            default: Owner Tag
+          DomainTag:
+            default: Domain Tag
+
+    Parameters:
+      # NGINX Parameters
+      CreateProxyNGINX:
+        Type: String
+        AllowedValues: ["true", "false"]
+        Default: "true"
+        Description: Create NGINX Proxy?
+      NGINXLoadBalancerListenerImportStackName:
+        Type: String
+        Default: LB Stack Name
+        Description: Stack Name where the ALB Listener was created
+      NGINXServiceName:
+        Type: String
+        Default: NGINX
+        Description: NGINX service name
+      NGINXImageURL:
+        Default: "https://docker.polarisalpha.com/nginx:latest"
+        Description: NGINX image URL
+      NGINXContainerPort:
+        Type: Number
+        Default: 443
+        Description: The service port
+      NGINXContainerCpu:
+        Type: Number
+        Default: 256
+        Description: Required CPU
+      NGINXContainerMemory:
+        Type: Number
+        Default: 512
+        Description: Required memory
+      NGINXDesiredCount:
+        Type: Number
+        Default: 2
+        Description: Desired amount of services
+      NGINXPriority:
+        Type: Number
+        Default: 30
+        Description: The priority for the routing rule added to the load balancer
+      NGINXURL:
+        Type: String
+        Default: https://proxy.parsons.com/cp/proxy?url=
+        Description: The Full URL for the app
+      NGINXContainerRepoUsername:
+        Type: String
+        Description: Username of container registry
+      NGINXContainerRepoPassword:
+        Type: String
+        Description: Password of container registry
+        NoEcho: true
+      NGINXEnvAccessToken:
+        Type: String
+        Description: Access Token
+        NoEcho: true
+      NGINXEnvConsoleSecret:
+        Type: String
+        Description: Console Secret
+        NoEcho: true
+      NGINXAppConfigFile:
+        Type: String
+        Default: "default-app.conf"
+        Description: App Configuration File Name
+      NGINXMainConfigFile:
+        Type: String
+        Default: "default-nginx.conf"
+        Description: Main Configuration File Name
+      B64NGINXConfig:
+        Type: String
+        Default: aHR0cCB7CiMgUG9ydCA4MAp1cHN0cmVhbSBjZnRyZXBfcHJvZF9iYWNrX2VuZF9wb3J0XzgwIHsKaGFzaCAkcmVtb3RlX2FkZHI7CiAgICBzZXJ2ZXIgMTAuNDUuNTMuMTc3OjgwIG1heF9mYWlscz0zIGZhaWxfdGltZW91dD0zMHM7CiAgICBzZXJ2ZXIgMTAuNDUuNTIuMTE5OjgwIG1heF9mYWlscz0zIGZhaWxfdGltZW91dD0zMHM7CiAgICB9CnNlcnZlciB7CiAgICBsaXN0ZW4gODA7CiAgICBwcm94eV9wYXNzIGNmdHJlcF9wcm9kX2JhY2tfZW5kX3BvcnRfODA7CiAgICB9CiMgUG9ydCA0NDMKdXBzdHJlYW0gY2Z0cmVwX3Byb2RfYmFja19lbmRfcG9ydF80NDMgewpoYXNoICRyZW1vdGVfYWRkcjsKICAgIHNlcnZlciAxMC40NS41My4xNzc6NDQzIG1heF9mYWlscz0zIGZhaWxfdGltZW91dD0zMHM7CiAgICBzZXJ2ZXIgMTAuNDUuNTIuMTE5OjQ0MyBtYXhfZmFpbHM9MyBmYWlsX3RpbWVvdXQ9MzBzOwogICAgfQpzZXJ2ZXIgewogICAgbGlzdGVuIDQ0MzsKICAgIHByb3h5X3Bhc3MgY2Z0cmVwX3Byb2RfYmFja19lbmRfcG9ydF80NDM7CiAgICB9CnNlcnZlciB7CiAgICBsb2NhdGlvbiAvaGVhbHRoIHsKICAgICAgICBhY2Nlc3NfbG9nIG9mZjsKICAgICAgICByZXR1cm4gMjAwICdIZWFsdGh5ISc7CiAgICAgICAgYWRkX2hlYWRlciBDb250ZW50LVR5cGUgdGV4dC9wbGFpbjsKICAgICAgICB9CiAgICB9Cn0=
+        Description: Base 64 NGINX Configuration File
+      # HAProxy Parameters
+      CreateHAProxy:
+        Type: String
+        Default: "false"
+        AllowedValues: ["true", "false"]
+        Description: Create HAProxy?
+      HAProxyLoadBalancerListenerImportStackName:
+        Type: String
+        Default: STACKNAME
+        Description: Stack Name where the ALB Listener was created
+      HAProxyServiceName:
+        Type: String
+        Default: HAProxy
+        Description: HAProxy service name
+      HAProxyImageURL:
+        Default: "https://docker.polarisalpha.com/haproxy:latest"
+        Description: HAProxy image URL
+      HAProxyContainerPort:
+        Type: Number
+        Default: 443
+        Description: The service port
+      HAProxyContainerCpu:
+        Type: Number
+        Default: 256
+        Description: Required CPU
+      HAProxyContainerMemory:
+        Type: Number
+        Default: 512
+        Description: Required memory
+      HAProxyDesiredCount:
+        Type: Number
+        Default: 2
+        Description: Desired amount of services
+      HAProxyPriority:
+        Type: Number
+        Default: 30
+        Description: The priority for the routing rule added to the load balancer
+      HAProxyContainerRepoPassword:
+        Type: String
+        Description: Password of container registry
+        NoEcho: true
+      HAProxyContainerRepoUsername:
+        Type: String
+        Default: ""
+        Description: Username of container registry
+      HAProxyEnvAccessToken:
+        Type: String
+        Description: Access Token
+        NoEcho: true
+      HAProxyEnvConsoleSecret:
+        Type: String
+        Description: Console Secret
+        NoEcho: true
+      HAProxyMainConfigFile:
+        Type: String
+        Default: "default-app.conf"
+        Description: "HAProxy App Configuration File Name"
+      HAProxyMainConfigFile:
+        Type: String
+        Default: "default-haproxy.conf"
+        Description: "HAProxy Main Configuration File Name"
+      B64HAProxyConfig:
+        Type: String
+        Default: wefafdsdgstaawe54w3y3qwa2AR4WDRF
+        Description: "Base 64 HAProxy Configuration File"
+      # KMS Key Parameters
+      KMSKeyDescription:
+        Type: String
+        MinLength: 0
+        MaxLength: 8192
+        Default: "proxy-parsons-com"
+        Description: KMS Key Description
+      KMSKeyAliasName:
+        Type: String
+        MinLength: 1
+        MaxLength: 250
+        AllowedPattern: "^[a-zA-Z0-9:_-]+$"
+        ConstraintDescription: "alphanumeric,:,_,- are allowed."
+        Default: "Proxy"
+        Description: KMS Key Alias - do not include alias/, it is included for you
+      # S3 Bucket Parameters
+      ProxyS3BucketPrefix:
+        Type: String
+        Default: parsons-iac-aws/templates/ProxyConfigs
+        AllowedPattern: "[-_ a-zA-Z0-9/]*"
+        MinLength: "5"
+        MaxLength: "50"
+        Description: S3 Bucket Name and path where Proxy configuration files are located
+      # Network Parameters
+      VPC:
+        Description: VPC for deploying container
+        Type: AWS::EC2::VPC::Id
+      PrivateSubnet1:
+        Description:  Subnet 1 to deploy resources into.  In Palo Alto controlled DMZ, so Private in AWS.
+        Type: AWS::EC2::Subnet::Id
+      PrivateSubnet2:
+        Description:  Subnet 2 to deploy resources into.  In Palo Alto controlled DMZ, so Private in AWS.
+        Type: AWS::EC2::Subnet::Id
+      PrivateSubnet3:
+        Description:  Subnet 3 to deploy resources into.  In Palo Alto controlled DMZ, so Private in AWS.
+        Type: AWS::EC2::Subnet::Id
+      FQDN:
+        Type: String
+        Default: proxy.parsons.com
+        Description: Fully Qualified Domain Name for App
+      ProxyURL:
+        Type: String
+        Default: https://proxy.parsons.com/cp/proxy?url=
+        Description: Full URL for App
+      # Tag Parameters
+      NameTag:
+        Type: String
+        Default: "VANVA01ECSNGINX01"
+        Description: "The name of the container resource"
+      AppTag:
+        Type: String
+        Default: "Proxy"
+        Description: "The name of primary application the container will support. Must be valid Application name from Application portfolio"
+      GBUTag:
+        Type: String
+        Default: "COR"
+        AllowedValues: ["COR", "FED", "MEA", "INF"]
+        Description: "The GBU of Job/Wbs # that will be charge for this resource"
+      EnvironmentTag:
+        Type: String
+        Default: "PROD"
+        AllowedValues: ["PROD", "MANAGEMENT", "TEST", "DEV", "QA", "DR"]
+        Description: "The environment this resource resides in"
+      ITSMTag:
+        Type: String
+        Default: "SERVER"
+        AllowedValues: ["SERVER", "STORAGE", "NETWORK", "BACKUP", "MANAGEMENT", "DATABASE"]
+        Description: "The name of ITSM service that this resource will be aligned to"
+      JobWbsTag:
+        Description: "Valid job/wbs (xxxxxx-xxxxx)"
+        AllowedPattern: "[0-9][0-9][0-9][0-9][0-9][0-9].[0-9][0-9][0-9][0-9][0-9]"
+        Type: String
+      OwnerTag:
+        Type: String
+        Default: cpeteam@parsons.com
+        AllowedPattern: "^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\\.[a-zA-Z0-9-.]+$"
+        Description: "POC email address (individual or distrabution list)"
+      DomainTag:
+        Type: String
+        Default: "parsons.com"
+        AllowedValues: ["parsons.com", "parsonsext.com", "parsonstst.com"]
+        Description: "What domain the server belongs to"
+
+    Conditions:
+      CreatingProxyNGINX: !Equals
+        - !Ref CreateProxyNGINX
+        - true
+      CreatingHAPRoxy: !Equals
+        - !Ref CreateHAProxy
+        - true
+
+    Resources:
+      # Secrets
+      # NGINX Proxy
+      NGINXConsoleSecret:
+        Condition: CreatingProxyNGINX
+        Type: AWS::SecretsManager::Secret
+        Properties:
+          Name: !Sub 'NGINX-console-secrets'
+          Description: "Secrets for NGINX Proxy Container Console Secret"
+          SecretString: !Ref NGINXEnvConsoleSecret
+          KmsKeyId: !GetAtt KMSKey.Arn
+          Tags:
+          - Key: "App"
+            Value: !Ref AppTag
+          - Key: "Domain"
+            Value: !Ref DomainTag
+          - Key: "Environment"
+            Value: !Ref EnvironmentTag
+          - Key: "GBU"
+            Value: !Ref GBUTag
+          - Key: "ITSM"
+            Value: !Ref ITSMTag
+          - Key: "Job/Wbs"
+            Value: !Ref JobWbsTag
+          - Key: "Owner"
+            Value: !Ref OwnerTag
+      NGINXRepoSecrets:
+        Condition: CreatingProxyNGINX
+        Type: AWS::SecretsManager::Secret
+        Properties:
+          Name: !Sub 'nginx-repo-secrets'
+          Description: "Secrets for NGINX Proxy Container Repo Access"
+          SecretString: !Sub '{ "username": "${NGINXContainerRepoUsername}", "password": "${NGINXContainerRepoPassword}" }'
+          KmsKeyId: !GetAtt KMSKey.Arn
+          Tags:
+          - Key: "App"
+            Value: !Ref AppTag
+          - Key: "Domain"
+            Value: !Ref DomainTag
+          - Key: "Environment"
+            Value: !Ref EnvironmentTag
+          - Key: "GBU"
+            Value: !Ref GBUTag
+          - Key: "ITSM"
+            Value: !Ref ITSMTag
+          - Key: "Job/Wbs"
+            Value: !Ref JobWbsTag
+          - Key: "Owner"
+            Value: !Ref OwnerTag
+      # HAProxy
+      HAConsoleSecret:
+        Condition: CreatingHAProxy
+        Type: AWS::SecretsManager::Secret
+        Properties:
+          Name: !Sub 'haproxy-console-secrets'
+          Description: "Secrets for HAProxy Container Console Secret"
+          SecretString: !Ref HAProxyEnvConsoleSecret
+          KmsKeyId: !GetAtt KMSKey.Arn
+          Tags:
+          - Key: "App"
+            Value: !Ref AppTag
+          - Key: "Domain"
+            Value: !Ref DomainTag
+          - Key: "Environment"
+            Value: !Ref EnvironmentTag
+          - Key: "GBU"
+            Value: !Ref GBUTag
+          - Key: "ITSM"
+            Value: !Ref ITSMTag
+          - Key: "Job/Wbs"
+            Value: !Ref JobWbsTag
+          - Key: "Owner"
+            Value: !Ref OwnerTag
+      HAProxyRepoSecrets:
+        Condition: CreatingHAProxy
+        Type: AWS::SecretsManager::Secret
+        Properties:
+          Name: !Sub 'haproxy-repo-secrets'
+          Description: "Secrets for HAProxy Container Repo Access"
+          SecretString: !Sub '{ "username": "${HAProxyContainerRepoUsername}", "password": "${HAProxyContainerRepoPassword}" }'
+          KmsKeyId: !GetAtt KMSKey.Arn
+          Tags:
+          - Key: "App"
+            Value: !Ref AppTag
+          - Key: "Domain"
+            Value: !Ref DomainTag
+          - Key: "Environment"
+            Value: !Ref EnvironmentTag
+          - Key: "GBU"
+            Value: !Ref GBUTag
+          - Key: "ITSM"
+            Value: !Ref ITSMTag
+          - Key: "Job/Wbs"
+            Value: !Ref JobWbsTag
+          - Key: "Owner"
+            Value: !Ref OwnerTag
+      # Security Groups - NGINX
+      NGINXECSSecurityGroup:
+        Condition: CreatingProxyNGINX
+        Type: AWS::EC2::SecurityGroup
+        Properties:
+          GroupName: !Sub 'SG-Proxy-ecs'
+          GroupDescription: Controls access to ecs
+          VpcId: !Ref VPC
+          SecurityGroupEgress:
+            -
+              IpProtocol: udp
+              FromPort: 53
+              ToPort: 53
+              CidrIp: 0.0.0.0/0
+            -
+              IpProtocol: tcp
+              FromPort: 80
+              ToPort: 80
+              CidrIp: 0.0.0.0/0
+            -
+              IpProtocol: tcp
+              FromPort: 443
+              ToPort: 443
+              CidrIp: 0.0.0.0/0
+          SecurityGroupIngress:
+            -
+              IpProtocol: tcp
+              FromPort: !Ref NGINXContainerPort
+              ToPort: !Ref NGINXContainerPort
+              CidrIp: 172.16.0.0/12
+            -
+              IpProtocol: tcp
+              FromPort: !Ref NGINXContainerPort
+              ToPort: !Ref NGINXContainerPort
+              CidrIp: 10.0.0.0/8
+          Tags:
+          - Key: "Name"
+            Value: "SG-Proxy-ecs"
+          - Key: "App"
+            Value: !Ref AppTag
+          - Key: "Domain"
+            Value: !Ref DomainTag
+          - Key: "Environment"
+            Value: !Ref EnvironmentTag
+          - Key: "GBU"
+            Value: !Ref GBUTag
+          - Key: "ITSM"
+            Value: !Ref ITSMTag
+          - Key: "Job/Wbs"
+            Value: !Ref JobWbsTag
+          - Key: "Owner"
+            Value: !Ref OwnerTag
+      # Security Groups - HAProxy
+      HAProxyECSSecurityGroup:
+        Condition: CreatingHAProxy
+        Type: AWS::EC2::SecurityGroup
+        Properties:
+          GroupName: !Sub 'SG-Proxy-ecs'
+          GroupDescription: Controls access to ecs
+          VpcId: !Ref VPC
+          SecurityGroupEgress:
+            -
+              IpProtocol: udp
+              FromPort: 53
+              ToPort: 53
+              CidrIp: 0.0.0.0/0
+            -
+              IpProtocol: tcp
+              FromPort: 80
+              ToPort: 80
+              CidrIp: 0.0.0.0/0
+            -
+              IpProtocol: tcp
+              FromPort: 443
+              ToPort: 443
+              CidrIp: 0.0.0.0/0
+          SecurityGroupIngress:
+            -
+              IpProtocol: tcp
+              FromPort: !Ref HAProxyContainerPort
+              ToPort: !Ref HAProxyContainerPort
+              CidrIp: 172.16.0.0/12
+            -
+              IpProtocol: tcp
+              FromPort: !Ref HAProxyContainerPort
+              ToPort: !Ref HAProxyContainerPort
+              CidrIp: 10.0.0.0/8
+          Tags:
+          - Key: "Name"
+            Value: "SG-Proxy-ecs"
+          - Key: "App"
+            Value: !Ref AppTag
+          - Key: "Domain"
+            Value: !Ref DomainTag
+          - Key: "Environment"
+            Value: !Ref EnvironmentTag
+          - Key: "GBU"
+            Value: !Ref GBUTag
+          - Key: "ITSM"
+            Value: !Ref ITSMTag
+          - Key: "Job/Wbs"
+            Value: !Ref JobWbsTag
+          - Key: "Owner"
+            Value: !Ref OwnerTag
+      # KMS
+      KMSKey:
+        Type: AWS::KMS::Key
+        Properties:
+          Description: !Ref KMSKeyDescription
+          KeyPolicy:
+            Version: "2012-10-17"
+            Id: "key-policy-1"
+            Statement:
+              -
+                Sid: "Enable IAM User Permissions"
+                Effect: "Allow"
+                Principal:
+                  AWS: !Sub "arn:aws:iam::${AWS::AccountId}:root"
+                Action:
+                  - "kms:*"
+                Resource: "*"
+              -
+                Sid: "Allow access for Key Administrators"
+                Effect: "Allow"
+                Principal:
+                  AWS: !Sub "arn:aws:iam::${AWS::AccountId}:role/SAMLAdminRole"
+                Action:
+                  - "kms:Create*"
+                  - "kms:Describe*"
+                  - "kms:Enable*"
+                  - "kms:List*"
+                  - "kms:Put*"
+                  - "kms:Update*"
+                  - "kms:Revoke*"
+                  - "kms:Disable*"
+                  - "kms:Get*"
+                  - "kms:Delete*"
+                  - "kms:ScheduleKeyDeletion"
+                  - "kms:CancelKeyDeletion"
+                  - "kms:TagResource"
+                  - "kms:UntagResource"
+                Resource: "*"
+              -
+                Sid: "Allow use of the key"
+                Effect: "Allow"
+                Principal:
+                  AWS: [
+                    !Sub "arn:aws:iam::${AWS::AccountId}:role/SAMLAdminRole",
+                    !Sub "arn:aws:iam::${AWS::AccountId}:role/SAMLRunOps"
+                  ]
+                Action:
+                  - "kms:Encrypt"
+                  - "kms:Decrypt"
+                  - "kms:ReEncrypt*"
+                  - "kms:GenerateDataKey*"
+                  - "kms:DescribeKey"
+                Resource: "*"
+              -
+                Sid: "Allow attachment of persistent resources"
+                Effect: "Allow"
+                Principal:
+                  AWS: [
+                    !Sub "arn:aws:iam::${AWS::AccountId}:role/SAMLAdminRole",
+                    !Sub "arn:aws:iam::${AWS::AccountId}:role/SAMLRunOps"
+                  ]
+                Action:
+                  - "kms:CreateGrant"
+                  - "kms:ListGrants"
+                  - "kms:RevokeGrant"
+                Resource: "*"
+                Condition:
+                  Bool:
+                    "kms:GrantIsForAWSResource": "true"
+          Tags:
+          - Key: "App"
+            Value: !Ref AppTag
+          - Key: "Domain"
+            Value: !Ref DomainTag
+          - Key: "Environment"
+            Value: !Ref EnvironmentTag
+          - Key: "GBU"
+            Value: !Ref GBUTag
+          - Key: "ITSM"
+            Value: !Ref ITSMTag
+          - Key: "Job/Wbs"
+            Value: !Ref JobWbsTag
+          - Key: "Owner"
+            Value: !Ref OwnerTag
+          Enabled: true
+          EnableKeyRotation: true
+      KMSKeyAlias:
+        Type: AWS::KMS::Alias
+        Properties:
+          AliasName: !Sub "alias/${KMSKeyAliasName}"
+          TargetKeyId:
+            Ref: KMSKey
+      # Role/Policy for ECS Prod
+      ECSRole:
+        Type: AWS::IAM::Role
+        Properties:
+          RoleName: !Sub 'Proxy-ecs-role'
+          Description: Rule to allow resource to do ECS
+          AssumeRolePolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action: sts:AssumeRole
+                Sid: ""
+                Principal:
+                  Service:
+                    - ecs-tasks.amazonaws.com
+          Tags:
+          - Key: "App"
+            Value: !Ref AppTag
+          - Key: "Domain"
+            Value: !Ref DomainTag
+          - Key: "Environment"
+            Value: !Ref EnvironmentTag
+          - Key: "GBU"
+            Value: !Ref GBUTag
+          - Key: "ITSM"
+            Value: !Ref ITSMTag
+          - Key: "Job/Wbs"
+            Value: !Ref JobWbsTag
+          - Key: "Owner"
+            Value: !Ref OwnerTag
+      PolicySecretAccess:
+        Type: AWS::IAM::Policy
+        Properties:
+          PolicyName: !Sub 'Proxy-secrets-policy'
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              -
+                Effect: Allow
+                Action:
+                  - "secretsmanager:GetResourcePolicy"
+                  - "secretsmanager:GetSecretValue"
+                  - "secretsmanager:DescribeSecret"
+                  - "secretsmanager:ListSecretVersionIds"
+                Resource:
+                  - !Ref ProxyRepoSecrets
+                  - !Ref ProxyConsoleSecret
+              -
+                Effect: Allow
+                Resource: "*"
+                Action:
+                  - "logs:CreateLogStream"
+                  - "logs:PutLogEvents"
+              -
+                Effect: Allow
+                Action:
+                  - "kms:Decrypt"
+                Resource: !GetAtt KMSKey.Arn
+          Roles:
+            - !Ref ECSRole
+      # ALB addition - NGINX
+      NGINXTargetGroup:
+        Condition: CreatingProxyNGINX
+        Type: AWS::ElasticLoadBalancingV2::TargetGroup
+        Properties:
+          HealthCheckIntervalSeconds: 30
+          HealthCheckPath: "/health"
+          HealthCheckProtocol: HTTP
+          HealthCheckTimeoutSeconds: 5
+          HealthyThresholdCount: 2
+          TargetType: ip
+          Name: !Sub "tg-${NGINXServiceName}"
+          Port: !Ref NGINXContainerPort
+          Protocol: HTTP
+          UnhealthyThresholdCount: 2
+          VpcId: !Ref VPC
+      NGINXLoadBalancerRuleHost:
+        Condition: CreatingProxyNGINX
+        Type: AWS::ElasticLoadBalancingV2::ListenerRule
+        Properties:
+          Actions:
+            - TargetGroupArn: !Ref NGINXTargetGroup
+              Type: forward
+          Conditions:
+            - Field: host-header
+              Values:
+                - !Ref FQDN
+          ListenerArn:
+            Fn::ImportValue:
+              !Sub "${NGINXLoadBalancerListenerImportStackName}-LoadBalancerListener"
+          Priority: !Ref ProxyPriority
+      # ALB addition - HAProxy
+      HAProxyTargetGroup:
+        Condition: CreatingHAProxy
+        Type: AWS::ElasticLoadBalancingV2::TargetGroup
+        Properties:
+          HealthCheckIntervalSeconds: 30
+          HealthCheckPath: "/health"
+          HealthCheckProtocol: HTTP
+          HealthCheckTimeoutSeconds: 5
+          HealthyThresholdCount: 2
+          TargetType: ip
+          Name: !Sub "tg-${HAProxyServiceName}"
+          Port: !Ref HAProxyContainerPort
+          Protocol: HTTP
+          UnhealthyThresholdCount: 2
+          VpcId: !Ref VPC
+      HAProxyLoadBalancerRuleHost:
+        Condition: CreatingHAProxy
+        Type: AWS::ElasticLoadBalancingV2::ListenerRule
+        Properties:
+          Actions:
+            - TargetGroupArn: !Ref HAProxyTargetGroup
+              Type: forward
+          Conditions:
+            - Field: host-header
+              Values:
+                - !Ref FQDN
+          ListenerArn:
+            Fn::ImportValue:
+              !Sub "${HAProxyLoadBalancerListenerImportStackName}-LoadBalancerListener"
+          Priority: !Ref ProxyPriority
+      # ECS Cluster - NGINX
+      NGINXECSCluster:
+        Condition: CreatingProxyNGINX
+        Type: AWS::ECS::Cluster
+        Properties:
+          ClusterName: !Sub 'nginx-ecs-cluster'
+          Tags:
+          - Key: "App"
+            Value: !Ref AppTag
+          - Key: "Domain"
+            Value: !Ref DomainTag
+          - Key: "Environment"
+            Value: !Ref EnvironmentTag
+          - Key: "GBU"
+            Value: !Ref GBUTag
+          - Key: "ITSM"
+            Value: !Ref ITSMTag
+          - Key: "Job/Wbs"
+            Value: !Ref JobWbsTag
+          - Key: "Owner"
+            Value: !Ref OwnerTag
+      NGINXCloudWatchLogsGroup:
+        Condition: CreatingProxyNGINX
+        Type: AWS::Logs::LogGroup
+        Properties:
+          LogGroupName: !Sub '/${NGINXServiceName}'
+          RetentionInDays: 30
+      # ECS Cluster - HAProxy
+      HAProxyECSCluster:
+        Condition: CreatingHAProxy
+        Type: AWS::ECS::Cluster
+        Properties:
+          ClusterName: !Sub 'haproxy-ecs-cluster'
+          Tags:
+          - Key: "App"
+            Value: !Ref AppTag
+          - Key: "Domain"
+            Value: !Ref DomainTag
+          - Key: "Environment"
+            Value: !Ref EnvironmentTag
+          - Key: "GBU"
+            Value: !Ref GBUTag
+          - Key: "ITSM"
+            Value: !Ref ITSMTag
+          - Key: "Job/Wbs"
+            Value: !Ref JobWbsTag
+          - Key: "Owner"
+            Value: !Ref OwnerTag
+      HAProxyCloudWatchLogsGroup:
+        Condition: CreatingHAProxy
+        Type: AWS::Logs::LogGroup
+        Properties:
+          LogGroupName: !Sub '/${HAProxyServiceName}'
+          RetentionInDays: 30
+      # NGINX Task Definition
+      NGINXTaskDefinition:
+        Condition: CreatingProxyNGINX
+        Type: AWS::ECS::TaskDefinition
+        Properties:
+          Family: !Ref NGINXServiceName
+          Cpu: !Ref NGINXContainerCpu
+          Memory: !Ref NGINXContainerMemory
+          Volumes:
+            - Name: nginx-conf-vol
+              Host: {}
+          NetworkMode: awsvpc
+          RequiresCompatibilities:
+            - FARGATE
+          ExecutionRoleArn: !Ref ECSRole
+          TaskRoleArn: !Ref ECSRole
+          Tags:
+          - Key: "App"
+            Value: !Ref AppTag
+          - Key: "Domain"
+            Value: !Ref DomainTag
+          - Key: "Environment"
+            Value: !Ref EnvironmentTag
+          - Key: "GBU"
+            Value: !Ref GBUTag
+          - Key: "ITSM"
+            Value: !Ref ITSMTag
+          - Key: "Job/Wbs"
+            Value: !Ref JobWbsTag
+          - Key: "Owner"
+            Value: !Ref OwnerTag
+          ContainerDefinitions:
+            - Name: !Ref NGINXServiceName
+              Cpu: !Ref NGINXContainerCpu
+              Memory: !Ref NGINXContainerMemory
+              Image: !Ref NGINXImageUrl
+              Essential: true
+              DependsOn:
+                - Condition: COMPLETE
+                  ContainerName: nginx-config
+              Environment:
+                - Name: PORT
+                  Value: !Ref NGINXContainerPort
+                - Name: ACCESS_TOKEN
+                  Value: !Ref NGINXEnvAccessToken
+                - Name: LB_NAME
+                  Value: "Proxy"
+                - Name: CONSOLE_EXPIRATION
+                  Value: "24h"
+                - Name: MASTER_CHAT_ID
+                  Value: "100039574731087"
+                - Name: PERFORMANCE_AVG_LENGTH
+                  Value: "10"
+                - Name: PROXY_URL
+                  Value: !Ref ProxyURL
+              PortMappings:
+                - ContainerPort: !Ref NGINXContainerPort
+              RepositoryCredentials:
+                CredentialsParameter: !Ref NGINXRepoSecrets
+              LogConfiguration:
+                LogDriver: awslogs
+                Options:
+                  awslogs-group: !Ref NGINXCloudWatchLogsGroup
+                  awslogs-region: !Ref "AWS::Region"
+                  awslogs-stream-prefix: !Ref NGINXServiceName
+              Secrets:
+                - Name: CONSOLE_SECRET
+                  ValueFrom: !Ref NGINXConsoleSecret
+            - Name: nginx-config
+              Image: bash
+              Essential: false
+              Command:
+                - -c
+                - echo $DATA | base64 -d - | tee /etc/nginx/nginx.conf
+              Environment:
+                - Name: DATA
+                  Value: !Ref B64ProxyConfig
+              MountPoints:
+                - ContainerPath: /etc/nginx
+                  SourceVolume: nginx-conf-vol
+      # HAProxy Task Definition
+      HAPRoxyTaskDefinition:
+        Condition: CreatingHAPRoxy
+        Type: AWS::ECS::TaskDefinition
+        Properties:
+          Family: !Ref HAProxyServiceName
+          Cpu: !Ref HAProxyContainerCpu
+          Memory: !Ref HAProxyContainerMemory
+          NetworkMode: awsvpc
+          RequiresCompatibilities:
+            - FARGATE
+          ExecutionRoleArn: !Ref ECSRole
+          TaskRoleArn: !Ref ECSRole
+          Tags:
+          - Key: "App"
+            Value: !Ref AppTag
+          - Key: "Domain"
+            Value: !Ref DomainTag
+          - Key: "Environment"
+            Value: !Ref EnvironmentTag
+          - Key: "GBU"
+            Value: !Ref GBUTag
+          - Key: "ITSM"
+            Value: !Ref ITSMTag
+          - Key: "Job/Wbs"
+            Value: !Ref JobWbsTag
+          - Key: "Owner"
+            Value: !Ref OwnerTag
+          ContainerDefinitions:
+            - Name: !Ref HAProxyServiceName
+              Cpu: !Ref HAProxyContainerCpu
+              Memory: !Ref HAProxyContainerMemory
+              Image: !Ref HAProxyImageUrl
+              Environment:
+                - Name: PORT
+                  Value: !Ref HAProxyContainerPort
+                - Name: ACCESS_TOKEN
+                  Value: !Ref HAProxyEnvAccessToken
+                - Name: LB_NAME
+                  Value: "Proxy"
+                - Name: CONSOLE_EXPIRATION
+                  Value: "24h"
+                - Name: MASTER_CHAT_ID
+                  Value: "100039574731087"
+                - Name: PERFORMANCE_AVG_LENGTH
+                  Value: "10"
+                - Name: PROXY_URL
+                  Value: !Ref ProxyURL
+              PortMappings:
+                - ContainerPort: !Ref HAProxyContainerPort
+              RepositoryCredentials:
+                CredentialsParameter: !Ref ProxyRepoSecrets
+              LogConfiguration:
+                LogDriver: awslogs
+                Options:
+                  awslogs-group: !Ref HAProxyCloudWatchLogsGroup
+                  awslogs-region: !Ref "AWS::Region"
+                  awslogs-stream-prefix: !Ref HAProxyServiceName
+              Secrets:
+                - Name: CONSOLE_SECRET
+                  ValueFrom: !Ref HAProxyConsoleSecret
+            - Name: haproxy-config
+              Image: bash
+              Essential: false
+              Command:
+                - -c
+                - echo $DATA | base64 -d - | tee /etc/haproxy/haproxy.cfg
+              Environment:
+                - Name: DATA
+                  Value: !Ref B64ProxyConfig
+              MountPoints:
+                - ContainerPath: /etc/haproxy
+                  SourceVolume: haproxy-conf-vol
+      # Service - NGINX
+      NGINXService:
+        Condition: CreatingProxyNGINX
+        Type: AWS::ECS::Service
+        DependsOn: NGINXTaskDefinition
+        Properties:
+          ServiceName: !Ref NGINXServiceName
+          Cluster: !Ref NGINXECSCluster
+          LaunchType: FARGATE
+          DeploymentConfiguration:
+            MaximumPercent: 200
+            MinimumHealthyPercent: 75
+          DesiredCount: !Ref NGINXDesiredCount
+          Tags:
+          - Key: "App"
+            Value: !Ref AppTag
+          - Key: "Domain"
+            Value: !Ref DomainTag
+          - Key: "Environment"
+            Value: !Ref EnvironmentTag
+          - Key: "GBU"
+            Value: !Ref GBUTag
+          - Key: "ITSM"
+            Value: !Ref ITSMTag
+          - Key: "Job/Wbs"
+            Value: !Ref JobWbsTag
+          - Key: "Owner"
+            Value: !Ref OwnerTag
+          NetworkConfiguration:
+            AwsvpcConfiguration:
+              SecurityGroups:
+                - !Ref NGINXECSSecurityGroup
+              Subnets:
+                - !Ref PrivateSubnet1
+                - !Ref PrivateSubnet2
+                - !Ref PrivateSubnet3
+          TaskDefinition: !Ref NGINXTaskDefinition
+          LoadBalancers:
+            - ContainerName: !Ref NGINXServiceName
+              ContainerPort: !Ref NGINXContainerPort
+              TargetGroupArn: !Ref NGINXTargetGroup
+      # Service - HAProxy
+      NGINXService:
+        Condition: CreatingHAProxy
+        Type: AWS::ECS::Service
+        DependsOn: HAProxyTaskDefinition
+        Properties:
+          ServiceName: !Ref HAProxyServiceName
+          Cluster: !Ref HAProxyECSCluster
+          LaunchType: FARGATE
+          DeploymentConfiguration:
+            MaximumPercent: 200
+            MinimumHealthyPercent: 75
+          DesiredCount: !Ref HAProxyDesiredCount
+          Tags:
+          - Key: "App"
+            Value: !Ref AppTag
+          - Key: "Domain"
+            Value: !Ref DomainTag
+          - Key: "Environment"
+            Value: !Ref EnvironmentTag
+          - Key: "GBU"
+            Value: !Ref GBUTag
+          - Key: "ITSM"
+            Value: !Ref ITSMTag
+          - Key: "Job/Wbs"
+            Value: !Ref JobWbsTag
+          - Key: "Owner"
+            Value: !Ref OwnerTag
+          NetworkConfiguration:
+            AwsvpcConfiguration:
+              SecurityGroups:
+                - !Ref HAProxyECSSecurityGroup
+              Subnets:
+                - !Ref PrivateSubnet1
+                - !Ref PrivateSubnet2
+                - !Ref PrivateSubnet3
+          TaskDefinition: !Ref HAProxyTaskDefinition
+          LoadBalancers:
+            - ContainerName: !Ref HAProxyServiceName
+              ContainerPort: !Ref HAProxyContainerPort
+              TargetGroupArn: !Ref HAProxyTargetGroup

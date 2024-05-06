@@ -1,0 +1,157 @@
+---
+template: ssm_patch_management_cfn.yaml
+stacks:
+  oce-corp-ssm-patch-mon:
+    cli:
+      stack-name: oce-corp-ssm-patch-mon
+      profile: oce-sb12
+      region: us-east-1
+      capabilities: CAPABILITY_IAM
+    parameters:
+    MaintenanceWindowName: patch_group_monday_window
+    MaintenanceWindowDescription: Patch Group Monday Window
+    MainteanceWindowTimezone: UTC
+    MaintenanceWindowDuration: 3 # min:1 max:4
+    MaintenanceWindowCutoff: 1 # min:1 max:2
+    MaintenanceWindowSchedule: cron(0 1 ? * MON *)
+    MaintenanceTargetName: patch_group_monday_target
+    MaintenanceTargetDescription: Patch Group Monday Target
+    MaintenanceTargetKey: 'tag:patch_group'
+    MaintenaneTargetKeyValue: MON
+    MaintenanceWindowRunCommandTaskName: PatchManagement-Monday
+    MaintenanceWindowRunCommandTaskPriority: 1 # min:0 max:5
+    MaintenanceWindowRunCommandTaskMaxConcurrency: 50% #Integer or Percentage AllowedPattern: '^([1-9][0-9]*|[1-9][0-9]%|[1-9]%|100%)$'
+    MaintenanceWindowRunCommandTaskMaxErrors: 25% #Integer or Percentage AllowedPattern: '^([1-9][0-9]*|[1-9][0-9]%|[1-9]%|100%)$'
+    MaintenanceRunCommandS3Bucket: par-ssm-maintenance-logs-us-east-1
+  oce-corp-ssm-patch-tue:
+    cli:
+      stack-name: oce-corp-ssm-patch-tue
+      profile: oce-sb12
+      region: us-east-1
+      capabilities: CAPABILITY_IAM
+    parameters:
+    MaintenanceWindowName: patch_group_tuesday_window
+    MaintenanceWindowDescription: Patch Group Tuesday Window
+    MainteanceWindowTimezone: UTC
+    MaintenanceWindowDuration: 3 # min:1 max:4
+    MaintenanceWindowCutoff: 1 # min:1 max:2
+    MaintenanceWindowSchedule: cron(0 1 ? * TUE *)
+    MaintenanceTargetName: patch_group_tuesday_target
+    MaintenanceTargetDescription: Patch Group Monday Target
+    MaintenanceTargetKey: 'tag:patch_group'
+    MaintenaneTargetKeyValue: TUE
+    MaintenanceWindowRunCommandTaskName: PatchManagement-Tuesday
+    MaintenanceWindowRunCommandTaskPriority: 1 # min:0 max:5
+    MaintenanceWindowRunCommandTaskMaxConcurrency: 50% #Integer or Percentage AllowedPattern: '^([1-9][0-9]*|[1-9][0-9]%|[1-9]%|100%)$'
+    MaintenanceWindowRunCommandTaskMaxErrors: 25% #Integer or Percentage AllowedPattern: '^([1-9][0-9]*|[1-9][0-9]%|[1-9]%|100%)$'
+    MaintenanceRunCommandS3Bucket: par-ssm-maintenance-logs-us-east-1
+  oce-corp-ssm-patch-wed:
+    cli:
+      stack-name: oce-corp-ssm-patch-wed
+      profile: oce-sb12
+      region: us-east-1
+      capabilities: CAPABILITY_IAM
+    parameters:
+    MaintenanceWindowName: patch_group_wednesday_window
+    MaintenanceWindowDescription: Patch Group Wednesday Window
+    MainteanceWindowTimezone: UTC
+    MaintenanceWindowDuration: 3 # min:1 max:4
+    MaintenanceWindowCutoff: 1 # min:1 max:2
+    MaintenanceWindowSchedule: cron(0 1 ? * WED *)
+    MaintenanceTargetName: patch_group_wednesday_target
+    MaintenanceTargetDescription: Patch Group Wednesday Target
+    MaintenanceTargetKey: 'tag:patch_group'
+    MaintenaneTargetKeyValue: WED
+    MaintenanceWindowRunCommandTaskName: PatchManagement-Wednesday
+    MaintenanceWindowRunCommandTaskPriority: 1 # min:0 max:5
+    MaintenanceWindowRunCommandTaskMaxConcurrency: 50% #Integer or Percentage AllowedPattern: '^([1-9][0-9]*|[1-9][0-9]%|[1-9]%|100%)$'
+    MaintenanceWindowRunCommandTaskMaxErrors: 25% #Integer or Percentage AllowedPattern: '^([1-9][0-9]*|[1-9][0-9]%|[1-9]%|100%)$'
+    MaintenanceRunCommandS3Bucket: par-ssm-maintenance-logs-us-east-1
+  oce-corp-ssm-patch-thu:
+    cli:
+      stack-name: oce-corp-ssm-patch-thu
+      profile: oce-sb12
+      region: us-east-1
+      capabilities: CAPABILITY_IAM
+    parameters:
+    MaintenanceWindowName: patch_group_thursday_window
+    MaintenanceWindowDescription: Patch Group Thursday Window
+    MainteanceWindowTimezone: UTC
+    MaintenanceWindowDuration: 3 # min:1 max:4
+    MaintenanceWindowCutoff: 1 # min:1 max:2
+    MaintenanceWindowSchedule: cron(0 1 ? * THU *)
+    MaintenanceTargetName: patch_group_thursday_target
+    MaintenanceTargetDescription: Patch Group Thursday Target
+    MaintenanceTargetKey: 'tag:patch_group'
+    MaintenaneTargetKeyValue: THU
+    MaintenanceWindowRunCommandTaskName: PatchManagement-Thursday
+    MaintenanceWindowRunCommandTaskPriority: 1 # min:0 max:5
+    MaintenanceWindowRunCommandTaskMaxConcurrency: 50% #Integer or Percentage AllowedPattern: '^([1-9][0-9]*|[1-9][0-9]%|[1-9]%|100%)$'
+    MaintenanceWindowRunCommandTaskMaxErrors: 25% #Integer or Percentage AllowedPattern: '^([1-9][0-9]*|[1-9][0-9]%|[1-9]%|100%)$'
+    MaintenanceRunCommandS3Bucket: par-ssm-maintenance-logs-us-east-1
+  oce-corp-ssm-patch-fri:
+    cli:
+      stack-name: oce-corp-ssm-patch-fri
+      profile: oce-sb12
+      region: us-east-1
+      capabilities: CAPABILITY_IAM
+    parameters:
+    MaintenanceWindowName: patch_group_friday_window
+    MaintenanceWindowDescription: Patch Group Friday Window
+    MainteanceWindowTimezone: UTC
+    MaintenanceWindowDuration: 3 # min:1 max:4
+    MaintenanceWindowCutoff: 1 # min:1 max:2
+    MaintenanceWindowSchedule: cron(0 1 ? * FRI *)
+    MaintenanceTargetName: patch_group_friday_target
+    MaintenanceTargetDescription: Patch Group Friday Target
+    MaintenanceTargetKey: 'tag:patch_group'
+    MaintenaneTargetKeyValue: FRI
+    MaintenanceWindowRunCommandTaskName: PatchManagement-Friday
+    MaintenanceWindowRunCommandTaskPriority: 1 # min:0 max:5
+    MaintenanceWindowRunCommandTaskMaxConcurrency: 50% #Integer or Percentage AllowedPattern: '^([1-9][0-9]*|[1-9][0-9]%|[1-9]%|100%)$'
+    MaintenanceWindowRunCommandTaskMaxErrors: 25% #Integer or Percentage AllowedPattern: '^([1-9][0-9]*|[1-9][0-9]%|[1-9]%|100%)$'
+    MaintenanceRunCommandS3Bucket: par-ssm-maintenance-logs-us-east-1
+  oce-corp-ssm-patch-sat:
+    cli:
+      stack-name: oce-corp-ssm-patch-sat
+      profile: oce-sb12
+      region: us-east-1
+      capabilities: CAPABILITY_IAM
+    parameters:
+    MaintenanceWindowName: patch_group_saturday_window
+    MaintenanceWindowDescription: Patch Group Saturday Window
+    MainteanceWindowTimezone: UTC
+    MaintenanceWindowDuration: 3 # min:1 max:4
+    MaintenanceWindowCutoff: 1 # min:1 max:2
+    MaintenanceWindowSchedule: cron(0 1 ? * SAT *)
+    MaintenanceTargetName: patch_group_saturday_target
+    MaintenanceTargetDescription: Patch Group Saturday Target
+    MaintenanceTargetKey: 'tag:patch_group'
+    MaintenaneTargetKeyValue: SAT
+    MaintenanceWindowRunCommandTaskName: PatchManagement-Saturday
+    MaintenanceWindowRunCommandTaskPriority: 1 # min:0 max:5
+    MaintenanceWindowRunCommandTaskMaxConcurrency: 50% #Integer or Percentage AllowedPattern: '^([1-9][0-9]*|[1-9][0-9]%|[1-9]%|100%)$'
+    MaintenanceWindowRunCommandTaskMaxErrors: 25% #Integer or Percentage AllowedPattern: '^([1-9][0-9]*|[1-9][0-9]%|[1-9]%|100%)$'
+    MaintenanceRunCommandS3Bucket: par-ssm-maintenance-logs-us-east-1
+  oce-corp-ssm-patch-sun:
+    cli:
+      stack-name: oce-corp-ssm-patch-sun
+      profile: oce-sb12
+      region: us-east-1
+      capabilities: CAPABILITY_IAM
+    parameters:
+    MaintenanceWindowName: patch_group_sunday_window
+    MaintenanceWindowDescription: Patch Group Sunday Window
+    MainteanceWindowTimezone: UTC
+    MaintenanceWindowDuration: 3 # min:1 max:4
+    MaintenanceWindowCutoff: 1 # min:1 max:2
+    MaintenanceWindowSchedule: cron(0 1 ? * SUN *)
+    MaintenanceTargetName: patch_group_sunday_target
+    MaintenanceTargetDescription: Patch Group Sunday Target
+    MaintenanceTargetKey: 'tag:patch_group'
+    MaintenaneTargetKeyValue: SUN
+    MaintenanceWindowRunCommandTaskName: PatchManagement-Sunday
+    MaintenanceWindowRunCommandTaskPriority: 1 # min:0 max:5
+    MaintenanceWindowRunCommandTaskMaxConcurrency: 50% #Integer or Percentage AllowedPattern: '^([1-9][0-9]*|[1-9][0-9]%|[1-9]%|100%)$'
+    MaintenanceWindowRunCommandTaskMaxErrors: 25% #Integer or Percentage AllowedPattern: '^([1-9][0-9]*|[1-9][0-9]%|[1-9]%|100%)$'
+    MaintenanceRunCommandS3Bucket: par-ssm-maintenance-logs-us-east-1

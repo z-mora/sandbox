@@ -1,0 +1,107 @@
+---
+# Template reference - templates/ssm/parsons_gov_instance_profile.yaml
+AWSTemplateFormatVersion: 2010-09-09
+Description: Instance Profile Role assumed by EC2 Instance
+
+Resources:
+  SsmInstancePolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: Parsons_EC2_SSM_Policy
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Action:
+              - ec2messages:*
+              - ssm:UpdateInstanceInformation
+              - ssm:ListInstanceAssociations
+              - ssm:DescribeAssociation
+              - ssm:GetDeployablePatchSnapshotForInstance
+              - ssm:GetDocument
+              - ssm:DescribeDocument
+              - ssm:GetManifest
+              - ssm:ListAssociations
+              - ssm:PutInventory
+              - ssm:PutComplianceItems
+              - ssm:PutConfigurePackageResult
+              - ssm:UpdateAssociationStatus
+              - ssm:UpdateInstanceAssociationStatus
+              - ssmmessages:*
+              - logs:DescribeLogGroups
+              - logs:DescribeLogStreams
+              - logs:CreateLogStream
+              - logs:CreateLogGroup
+              - logs:PutLogEvents
+              - cloudwatch:PutMetricData
+              - ec2:DescribeTags
+              - ec2:DescribeVolumes
+            Resource: "*"
+            Effect: Allow
+          - Action:
+              - s3:GetObject
+            Resource:
+              - arn:aws:s3:::aws-ssm-us-east-1/*
+              - arn:aws:s3:::aws-windows-downloads-us-east-1/*
+              - arn:aws:s3:::amazon-ssm-us-east-1/*
+              - arn:aws:s3:::amazon-ssm-packages-us-east-1/*
+              - arn:aws:s3:::us-east-1-birdwatcher-prod/*
+              - arn:aws:s3:::aws-ssm-document-attachments-us-east-1/*
+              - arn:aws:s3:::patch-baseline-snapshot-us-east-1/*
+              - arn:aws:s3:::aws-ssm-us-west-2/*
+              - arn:aws:s3:::aws-windows-downloads-us-west-2/*
+              - arn:aws:s3:::amazon-ssm-us-west-2/*
+              - arn:aws:s3:::amazon-ssm-packages-us-west-2/*
+              - arn:aws:s3:::us-west-2-birdwatcher-prod/*
+              - arn:aws:s3:::aws-ssm-document-attachments-us-west-2/*
+              - arn:aws:s3:::patch-baseline-snapshot-us-west-1/*
+              - arn:aws:s3:::aws-ssm-me-south-1/*
+              - arn:aws:s3:::aws-windows-downloads-me-south-1/*
+              - arn:aws:s3:::amazon-ssm-me-south-1/*
+              - arn:aws:s3:::amazon-ssm-packages-me-south-1/*
+              - arn:aws:s3:::me-south-1-birdwatcher-prod/*
+              - arn:aws:s3:::aws-ssm-document-attachments-me-south-1/*
+              - arn:aws:s3:::patch-baseline-snapshot-me-south-1/*
+              - arn:aws:s3:::aws-patch-manager-me-south-1-a53fc9dce/*
+              - arn:aws:s3:::aws-ssm-ca-central-1/*
+              - arn:aws:s3:::aws-windows-downloads-ca-central-1/*
+              - arn:aws:s3:::amazon-ssm-ca-central-1/*
+              - arn:aws:s3:::amazon-ssm-packages-ca-central-1/*
+              - arn:aws:s3:::ca-central-1-birdwatcher-prod/*
+              - arn:aws:s3:::aws-ssm-document-attachments-ca-central-1/*
+              - arn:aws:s3:::patch-baseline-snapshot-ca-central-1/*
+            Effect: Allow
+          - Action:
+              - s3:GetObject
+              - s3:PutObject
+              - s3:PutObjectAcl
+              - s3:GetEncryptionConfiguration
+            Resource:
+              - arn:aws:s3:::par-ssm-maintenance-logs-us-east-1
+              - arn:aws:s3:::par-ssm-maintenance-logs-us-east-1/*
+            Effect: Allow
+          - Effect: Allow
+            Action:
+              - ssm:GetParameter
+            Resource: arn:aws:ssm:*:*:parameter/AmazonCloudWatch-*
+      Roles:
+        - !Ref Ec2InstanceRole
+  Ec2InstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: Parsons_EC2_Instance_Profile
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+                - ssm.amazonaws.com
+            Action:
+              - sts:AssumeRole
+  Ec2InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      InstanceProfileName: Parsons_EC2_Instance_Profile
+      Roles:
+        - Ref: Ec2InstanceRole

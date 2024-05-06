@@ -1,0 +1,175 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: 'Template to create Patching Maintenace Window, Targets and Tasks.'
+Parameters:
+  MaintenanceWindowName:
+    Description: Maintenace window name
+    Type: String
+    Default: PatchGroupMonday
+  MaintenanceWindowDescription:
+    Description: Maintenance window description
+    Type: String
+    MaxLength: '128'
+    Default: Patch Group Monday Server Patching
+  MainteanceWindowTimezone:
+    Description: Timezone for schedule
+    Type: String
+    Default: UTC
+  MaintenanceWindowDuration:
+    Description: >-
+      How many hours the maintenance window will run from start Timezone (1-4hrs)
+    Type: Number
+    Default: 3
+    MinValue: 1
+    MaxValue: 4
+  MaintenanceWindowCutoff:
+    Description: >-
+      How many hours before maintenance window ends and will new jobs not start (1-2hrs)
+    Type: Number
+    Default: 1
+    MinValue: 1
+    MaxValue: 2
+  MaintenanceWindowSchedule:
+    Description: Cron/Rate expression for schedule
+    Type: String
+    Default: cron(0 0 17 ? * MON *)
+  MaintenanceTargetName:
+    Description: Maintenace Target Name (No Spaces)
+    Type: String
+    Default: patch_group_monday
+  MaintenanceTargetDescription:
+    Description: Patch Group Description
+    Type: String
+    MaxLength: '128'
+    Default: Patch Group Monday
+  MaintenanceTargetKey:
+    Description: >-
+      Tag Key should equal 'patch_group'
+    Type: String
+    Default: 'tag:patch_group'
+  MaintenaneTargetKeyValue:
+    Description: Tag Value for patch_group
+    Type: String
+    Default: MON
+  MaintenanceWindowRunCommandTaskName:
+    Description: Maintenace Window Task Name (No Spaces)
+    Type: String
+    Default: PatchManagement
+  MaintenanceWindowRunCommandTaskPriority:
+    Description: Job Priority - Number 0 - 5
+    Type: Number
+    Default: 1
+    MinValue: 0
+    MaxValue: 5
+  MaintenanceWindowRunCommandTaskMaxConcurrency:
+    Description: Integer or Percentage
+    Type: String
+    Default: 50%
+    AllowedPattern: '^([1-9][0-9]*|[1-9][0-9]%|[1-9]%|100%)$'
+  MaintenanceWindowRunCommandTaskMaxErrors:
+    Description: Integer or Percentage
+    Type: String
+    Default: 25%
+    AllowedPattern: '^([1-9][0-9]*|[1-9][0-9]%|[1-9]%|100%)$'
+  MaintenanceRunCommandS3Bucket:
+    Description: S3 Folder Name to store maintenance logs
+    Type: String
+    Default: sb12-maintenance-logs
+
+Resources:
+  SsmMaintanceRole:
+    Type: AWS::IAM::Role
+    Description: SSM Maintance IAM Role
+    Properties:
+  MaintenanceS3Bucket:
+    Type: 'AWS::S3::Bucket'
+    Description: S3 Bucket to store maintenance logs
+    Properties:
+      BucketName: !Ref MaintenanceRunCommandS3Bucket
+      # AccessControl: Private
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      VersioningConfiguration:
+        Status: Enabled
+    DeletionPolicy: Delete
+  MaintenanceS3BucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref MaintenanceS3Bucket
+      PolicyDocument:
+        Id: Policy1
+        Version: 2012-10-17
+        Statement:
+          - Sid: ReadWriteBucketObjects
+            Action:
+              - "s3:*"
+            Effect: Allow
+            Resource:
+              - !Sub "${MaintenanceS3Bucket.Arn}"
+              - !Sub "${MaintenanceS3Bucket.Arn}/*"
+            Principal: "*"
+            Condition:
+                StringEquals:
+                  aws:PrincipalOrgID:
+                    - o-xkwln3lsqp
+                    - o-24kon1cbk3
+                    - o-x0augfafh3
+                    - o-ij0mvoif2w
+  MaintenanceTargetSNS:
+    Type: 'AWS::SNS::Topic'
+    Description: SNS Topic so subscribers can recieve Patch Management notifications
+    Properties:
+      TopicName: patch-notifications
+  MaintenanceWindow:
+    Type: 'AWS::SSM::MaintenanceWindow'
+    Properties:
+      AllowUnassociatedTargets: false
+      Cutoff: !Ref MaintenanceWindowCutoff
+      Description: !Ref MaintenanceWindowDescription
+      Duration: !Ref MaintenanceWindowDuration
+      Name: !Ref MaintenanceWindowName
+      Schedule: !Ref MaintenanceWindowSchedule
+      ScheduleTimezone: !Ref MainteanceWindowTimezone
+  MaintenanceWindowTarget:
+    Type: 'AWS::SSM::MaintenanceWindowTarget'
+    Properties:
+      Name: !Ref MaintenanceTargetName
+      Description: !Ref MaintenanceTargetDescription
+      WindowId: !Ref MaintenanceWindow
+      ResourceType: INSTANCE
+      Targets:
+        - Key: !Ref MaintenanceTargetKey
+          Values:
+            - !Ref MaintenaneTargetKeyValue
+  MaintenanceWindowRunCommandTask:
+    Type: 'AWS::SSM::MaintenanceWindowTask'
+    Properties:
+      Name: !Ref MaintenanceWindowRunCommandTaskName
+      WindowId: !Ref MaintenanceWindow
+      Targets:
+        - Key: WindowTargetIds
+          Values:
+            - !Ref MaintenanceWindowTarget
+      TaskArn: AWS-RunPatchBaseline
+      TaskType: RUN_COMMAND
+      TaskInvocationParameters:
+        MaintenanceWindowRunCommandParameters:
+          DocumentHash: 945ae15356b0f6ba7bce2a738101b8822cedef3bf5c027abc3bb9023aaec8b1b
+          DocumentHashType: Sha256
+          NotificationConfig:
+            NotificationArn: !Ref MaintenanceTargetSNS
+            NotificationEvents:
+              - All
+            NotificationType: Command
+          OutputS3BucketName: !Ref MaintenanceS3Bucket
+          # OutputS3KeyPrefix: !Ref MaintenanceRunCommandS3BucketPrefix
+          ServiceRoleArn: arn:aws:iam::724979818371:role/sns-run-command-role
+      Priority: !Ref MaintenanceWindowRunCommandTaskPriority
+      MaxConcurrency: !Ref MaintenanceWindowRunCommandTaskMaxConcurrency
+      MaxErrors: !Ref MaintenanceWindowRunCommandTaskMaxErrors
