@@ -1,0 +1,57 @@
+# Example 1 - DMZ VPC using a DHCP option set and Route 53 resolver rules
+vpcs_example_1 = {
+  "vpc-dmz-parsons-com-sandbox-10-01" = {
+    cidr_block = "192.168.12.128/25"
+    dhcp_options = {
+      domain_name       = "parsons.com"
+      resolver_rule_ids = ["rslvr-rr-661623a5da542a5b5", "rslvr-rr-10fd4273e99f43d5b"]
+    }
+    private_subnets = {
+      "PrivateSubnet1A" = {
+        availability_zone = "us-east-1a"
+        cidr_block        = "192.168.12.128/26"
+      }
+      "PrivateSubnet2A" = {
+        availability_zone = "us-east-1b"
+        cidr_block        = "192.168.12.192/26"
+      }
+    }
+    transit_gateway_id = "tgw-0b54432052f2a35d7"
+  }
+}
+
+# Example 2 - DMZ VPC using a DHCP option set that uses Parsons DNS servers
+vpcs_example_2 = {
+  "vpc-dmz-parsons-com-sandbox-10-01" = {
+    cidr_block = "192.168.12.128/25"
+    dhcp_options = {
+      domain_name         = "parsons.com"
+      domain_name_servers = ["10.41.255.16", "10.41.255.76"]
+    }
+    private_subnets = {
+      "PrivateSubnet1A" = {
+        availability_zone = "us-east-1a"
+        cidr_block        = "192.168.12.128/26"
+      }
+      "PrivateSubnet2A" = {
+        availability_zone = "us-east-1b"
+        cidr_block        = "192.168.12.192/26"
+      }
+    }
+    transit_gateway_id = "tgw-0b54432052f2a35d7"
+  }
+}
+
+# Example 3 - DMZ VPC using Amazon Provided DNS
+vpcs_example_3 = {
+  "vpc-dmz-parsons-com-sandbox-10-01" = {
+    cidr_block = "192.168.12.128/25"
+    private_subnets = {
+      "PrivateSubnet1A" = {
+        availability_zone = "us-east-1a"
+        cidr_block        = "192.168.12.128/26"
+      }
+    }
+    transit_gateway_id = "tgw-0b54432052f2a35d7"
+  }
+}

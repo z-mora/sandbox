@@ -1,0 +1,9 @@
+{
+  "extends": "recommended-jenkinsfile",
+  "rules": {
+    "formatting.Indentation": {
+      "spacesPerIndentLevel": 2,
+      "severity": "info"
+    }
+  }
+}

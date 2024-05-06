@@ -1,0 +1,2 @@
+# Example 1
+deploy_ssm = true

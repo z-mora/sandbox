@@ -1,0 +1,45 @@
+# Example 1 - Policy defined using HCL (Note that $ is escaped)
+iam_policies = {
+  "policy-test-terragrunt-admin" = {
+    description = "Policy Assume Role for Terragrunt Admin Plan and Apply"
+    policy_hcl = {
+      version = "2012-10-17"
+      statements = {
+        "AllowAssumeOfTerragruntRole" = {
+          actions = ["sts:AssumeRole"]
+          effect  = "Allow"
+          resources = [
+            "arn:$${AWS::Partition}:iam::*:role/service-role/_sys_terragrunt_admin_role"
+          ]
+        }
+        "AllowPlanningNewAccounts" = {
+          actions   = ["ec2:DescribeAvailabilityZones", "sts:GetCallerIdentity"]
+          effect    = "Allow"
+          resources = ["*"]
+        }
+      }
+    }
+  }
+}
+
+# Example 2 - Policy defined using YAML (Note that $ is escaped)
+iam_policies = {
+  "policy-test-terragrunt-admin" = {
+    description = "Policy Assume Role for Terragrunt Admin Plan and Apply"
+    policy_yaml = <<-EOF
+      Version: 2012-10-17
+      Statement:
+      - Effect: Allow
+        Sid: "AllowAssumeOfTerragruntRole"
+        Action:
+          - "sts:AssumeRole"
+        Resource: !Sub "arn:$${AWS::Partition}:iam::*:role/service-role/_sys_terragrunt_admin_role"
+      - Effect: Allow
+        Sid: "AllowPlanningNewAccounts"
+        Action:
+          - "ec2:DescribeAvailabilityZones"
+          - "sts:GetCallerIdentity"
+        Resource: "*"
+    EOF
+  }
+}

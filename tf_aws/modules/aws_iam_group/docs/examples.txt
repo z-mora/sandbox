@@ -1,0 +1,16 @@
+# Example 1 - Group with a single policy attached
+iam_groups = {
+  group-test-terragrunt-admin = {
+    policy_keys = ["policy-test-terragrunt-admin"]
+  }
+}
+
+# Example 2 - Group with two policies attached
+iam_groups = {
+  group-test-terragrunt-admin = {
+    policy_keys = [
+      "policy-test-1",
+      "policy-test-2"
+    ]
+  }
+}

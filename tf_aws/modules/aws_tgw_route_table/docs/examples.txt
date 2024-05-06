@@ -1,0 +1,13 @@
+# Example 1 - TGW RT for a BU VPC
+tgw_route_tables = {
+  "tgw-route-table-inf-nittec-prod-tgw-route-table" = {
+    vpc_keys = ["vpc-dmz-parsons-com-nittec-prod-01"]
+  }
+}
+
+# Example 2 - Empty TGW RT in a corp networking account
+tgw_route_tables = {
+  "tgw-1-ci-internal-us-west-2-to-us-west-2-corp-it-vpn-route-table" = {
+    transit_gateway_key = "tgw-1-ci-internal-us-west-2-to-us-west-2-corp-it"
+  }
+}

@@ -1,0 +1,66 @@
+# Example 1 - Uer with no access keys
+iam_users = {
+  _sys_test_user = {
+    group_keys = ["group-test"]
+  }
+}
+
+# Example 2 - User with an access key
+iam_users = {
+  _sys_test_user = {
+    access_keys = {
+      test = {}
+    }
+    group_keys = ["group-test"]
+  }
+}
+
+# Example 3 - User with an access key stored in HC Vault
+iam_users = {
+  _sys_test_user = {
+    access_keys = {
+      test = {
+        vault = {
+          mount = "kv2_opde_it_devs"
+          path = "team_cloud/aws/comm/_sys_test_user"
+        }
+      }
+    }
+    group_keys = ["group-test"]
+  }
+}
+
+# Example 4 - User with an auto-rotated access key stored in HC Vault
+iam_users = {
+  _sys_test_user = {
+    access_keys = {
+      test = {
+        auto_rotate_days = 90
+        vault = {
+          mount = "kv2_opde_it_devs"
+          path = "team_cloud/aws/comm/_sys_test_user"
+        }
+      }
+    }
+    group_keys = ["group-test"]
+  }
+}
+
+# Example 5 - User with a staggered rotation access key stored in HC Vault
+iam_users = {
+  _sys_test_user = {
+    access_keys = {
+      jenkins = {
+        staggered_rotation = {
+          overlap_days = 3
+          rotate_days = 10
+        }
+        vault = {
+          mount = "kv2_opde_it_devs"
+          path  = "team_cloud/aws/comm/_sys_test_user"
+        }
+      }
+    }
+    group_keys = ["group-test-user"]
+  }
+}

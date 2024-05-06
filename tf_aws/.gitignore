@@ -1,0 +1,9 @@
+# Local .terraform directories
+.terraform
+
+# .tfstate files
+*.tfstate
+*.tfstate.*
+
+# lock file (so latest is always used for tests)
+.terraform.lock.hcl

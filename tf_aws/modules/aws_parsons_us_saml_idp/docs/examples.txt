@@ -1,0 +1,17 @@
+# Example 1 - Deploy the admin role
+deploy_parsons_us_saml_idp = ["account-admin"]
+
+# Example 2 - Deploy the billing role
+deploy_parsons_us_saml_idp = ["billing"]
+
+# Example 3 - Deploy the full_admin role
+deploy_parsons_us_saml_idp = ["full-admin"]
+
+# Example 4 - Deploy the route53_parsons_cyber role
+deploy_parsons_us_saml_idp = ["route53-parsons-cyber"]
+
+# Example 5 - Deploy the route53_parsons_games role
+deploy_parsons_us_saml_idp = ["route53-parsons-games"]
+
+# Example 6 - Deploy multiple roles
+deploy_parsons_us_saml_idp = ["account-admin", "full-admin", "billing"]

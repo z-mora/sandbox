@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?><md:EntityDescriptor entityID="http://www.okta.com/exk1b3ngl7oxWbDqq4h7" xmlns:md="urn:oasis:names:tc:SAML:2.0:metadata"><md:IDPSSODescriptor WantAuthnRequestsSigned="false" protocolSupportEnumeration="urn:oasis:names:tc:SAML:2.0:protocol"><md:KeyDescriptor use="signing"><ds:KeyInfo xmlns:ds="http://www.w3.org/2000/09/xmldsig#"><ds:X509Data><ds:X509Certificate>MIIDnjCCAoagAwIBAgIGAXHGQnJ7MA0GCSqGSIb3DQEBCwUAMIGPMQswCQYDVQQGEwJVUzETMBEG
+A1UECAwKQ2FsaWZvcm5pYTEWMBQGA1UEBwwNU2FuIEZyYW5jaXNjbzENMAsGA1UECgwET2t0YTEU
+MBIGA1UECwwLU1NPUHJvdmlkZXIxEDAOBgNVBAMMB3BhcnNvbnMxHDAaBgkqhkiG9w0BCQEWDWlu
+Zm9Ab2t0YS5jb20wHhcNMjAwNDI5MTQwNTE1WhcNMzAwNDI5MTQwNjE1WjCBjzELMAkGA1UEBhMC
+VVMxEzARBgNVBAgMCkNhbGlmb3JuaWExFjAUBgNVBAcMDVNhbiBGcmFuY2lzY28xDTALBgNVBAoM
+BE9rdGExFDASBgNVBAsMC1NTT1Byb3ZpZGVyMRAwDgYDVQQDDAdwYXJzb25zMRwwGgYJKoZIhvcN
+AQkBFg1pbmZvQG9rdGEuY29tMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAhwevMRoi
+k8eJn4nJPCjNGNEuaUJC7sBXGkCjuyOBUF83A3C7lJz+2kPfNB6Ioo8kvooBWmi27jWWyDgajZmL
+MJQ8J0ZKgkLhYjX9p/VfjMx9qVFFdteGn7um9qs9y85YXGkNWkZt21VwkRYN0x1oDU0BAOOj11zO
+no/llYoEDTNvy4YohJPpM0NSIWS+dnJkcgpvGfd02BbnRxGN/aj2MKRgYS6zk/HOfVbaqqkd3nD4
+/KMcrdefBbxNDVgLTAskVIYTQfosE8v90Gj9ttDyLbLekM1ZfoSSNwJu8jdhwpqomiMRJ2hZZJd5
+n8wyV6Rh0ipGRS3gGUJ7KkPlWQaTtwIDAQABMA0GCSqGSIb3DQEBCwUAA4IBAQA2E4g2IrQjjdIn
+8CFwE5gtGrc0OTMgmg2iw3wZQYOUKRWvBGPAsAg8jcG3H/hDcenxHFjVGibkJUpNNas+mLqzzMgl
+pBXeSg64hSe9uJRXWzO3+vulOvuvIBivGi9R1vfDDxCreJRxowuz7Xmidmu3lDQBTGGJh6kjXS9k
+YNu4dxFdEo8r98jQzueR7LvN+18e/HKPQEBAvVcUkVuQwooR6wO7ecPd2eBzXuLCauIqQCzqZTX4
+8+h7ZTHhL8WvoMgzaJcY8FN/aBRbtYOsxNLjpDflVlngAVmAQhBEUJOHwCZeXReiDuooBpZ0+V5t
+WIUXCadUys0elu8zckLAohLU</ds:X509Certificate></ds:X509Data></ds:KeyInfo></md:KeyDescriptor><md:NameIDFormat>urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress</md:NameIDFormat><md:NameIDFormat>urn:oasis:names:tc:SAML:2.0:nameid-format:unspecified</md:NameIDFormat><md:SingleSignOnService Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST" Location="https://login.parsons.us/app/amazon_aws/exk1b3ngl7oxWbDqq4h7/sso/saml"/><md:SingleSignOnService Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect" Location="https://login.parsons.us/app/amazon_aws/exk1b3ngl7oxWbDqq4h7/sso/saml"/></md:IDPSSODescriptor></md:EntityDescriptor>
